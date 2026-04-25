@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────
 # Fish シェル設定
 #
-# 元の dotfiles で使われている fisher プラグインを Nix 側で再現する。
-# Nix で管理するため fisher 自体は不要 (プラグインは store にある src を読む)。
+# プラグインは programs.fish.plugins で管理する。
+# これにより fisher は不要で、バージョンは flake.lock で固定される。
 # ─────────────────────────────────────────────────────────────
 { pkgs, ... }:
 
@@ -10,6 +10,8 @@
   programs.fish = {
     enable = true;
 
+    # pure はプロンプトテーマを提供するため starship とは併用しない。
+    # pkgs.fishPlugins に無いプラグインは fetchFromGitHub で固定できる。
     plugins = [
       { name = "autopair";  src = pkgs.fishPlugins.autopair.src; }
       { name = "sponge";    src = pkgs.fishPlugins.sponge.src; }
