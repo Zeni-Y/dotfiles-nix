@@ -1,508 +1,209 @@
-# Nixを使ったdotfiles管理チュートリアル
+# dotfiles-nix
 
-> [ryoppippi/dotfiles](https://github.com/ryoppippi/dotfiles) を参考に、初心者向けに簡略化したチュートリアルです。
+[Zeni-Y/dotfiles](https://github.com/Zeni-Y/dotfiles) (chezmoi 管理) を参考に、
+**Nix Flakes + Home Manager + nix-darwin** で macOS / Ubuntu の両方の環境を
+宣言的に管理するための dotfiles です。
+
+CI やテストは含めず、設定が増えても見通しを保てるように
+トピックごとにモジュールを分割しています。
+
+---
 
 ## 目次
 
-1. [dotfilesとは？](#1-dotfilesとは)
-2. [Nixとは？](#2-nixとは)
-3. [なぜNixでdotfilesを管理するのか？](#3-なぜnixでdotfilesを管理するのか)
-4. [用語解説](#4-用語解説)
-5. [環境のセットアップ](#5-環境のセットアップ)
-6. [ディレクトリ構成](#6-ディレクトリ構成)
-7. [設定ファイルを書く](#7-設定ファイルを書く)
-8. [設定を適用する](#8-設定を適用する)
-9. [日常的な使い方](#9-日常的な使い方)
-10. [次のステップ](#10-次のステップ)
+1. [何ができるか](#何ができるか)
+2. [ディレクトリ構成](#ディレクトリ構成)
+3. [前提ソフトウェアのインストール](#前提ソフトウェアのインストール)
+4. [初回セットアップ](#初回セットアップ)
+5. [日々の運用](#日々の運用)
+6. [カスタマイズの勘どころ](#カスタマイズの勘どころ)
+7. [既知のハマりどころ](#既知のハマりどころ)
 
 ---
 
-## 1. dotfilesとは？
+## 何ができるか
 
-Linuxや macOS では、ホームディレクトリ（`~`）に `.bashrc` や `.gitconfig` などのドット（`.`）で始まるファイルが存在します。これらは各種ツールの設定ファイルで、**dotfiles（ドットファイル）** と呼ばれています。
-
-```
-~/.gitconfig      # Gitの設定
-~/.bashrc         # Bashシェルの設定
-~/.config/nvim/   # Neovimの設定
-```
-
-これらを Git リポジトリで管理することで：
-
-- **バックアップ** — マシンが壊れても設定を復元できる
-- **同期** — 複数のマシンで同じ設定を使える
-- **共有** — 自分の設定を公開して他の人の参考にしてもらえる
+| トピック | 中身 |
+| --- | --- |
+| シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / pure)・starship プロンプト |
+| Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
+| ターミナル | tmux (prefix `C-t`, resurrect/continuum, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
+| エディタ | Neovim (defaultEditor)・Zed (`~/.config/zed/{settings,keymap}.json` を生成) |
+| CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi / ghq |
+| macOS のみ | Homebrew Cask (WezTerm, Zed, Raycast, Rectangle, 1Password, Slack, VSCode, Docker, Obsidian, …)・Dock / Finder / キーボード / トラックパッドの defaults write |
 
 ---
 
-## 2. Nixとは？
+## ディレクトリ構成
 
-**Nix** は、パッケージ管理と設定管理を行うツール（およびプログラミング言語）です。
+```
+.
+├── flake.nix                # 入力 (nixpkgs / home-manager / nix-darwin) と出力を定義
+├── flake.lock               # 依存バージョンの固定 (初回 `nix flake update` で生成)
+│
+├── hosts/                   # ホスト (= 適用対象) 単位の入口
+│   ├── macos.nix            #   nix-darwin + Home Manager
+│   └── ubuntu.nix           #   standalone Home Manager
+│
+├── home/                    # ユーザー領域 (~/) の設定。OS を問わない
+│   ├── default.nix          #   配下のモジュールを集約
+│   ├── packages.nix         #   "入れるだけ" の CLI ツール群
+│   ├── git.nix              #   Git
+│   ├── tmux.nix             #   tmux + プラグイン
+│   ├── wezterm.nix          #   WezTerm
+│   ├── shell/               #   シェル関連
+│   │   ├── default.nix
+│   │   ├── bash.nix         #     対話シェルなら fish に exec
+│   │   ├── fish.nix         #     fish + plugins + alias
+│   │   └── starship.nix     #     プロンプト
+│   ├── editors/             #   エディタ
+│   │   ├── default.nix
+│   │   ├── neovim.nix
+│   │   └── zed.nix          #     settings.json / keymap.json を Nix から生成
+│   └── cli/                 #   シェル統合が必要な CLI ツール
+│       ├── default.nix
+│       ├── bat.nix
+│       ├── eza.nix
+│       ├── fzf.nix
+│       ├── zoxide.nix
+│       ├── direnv.nix
+│       └── gh.nix
+│
+└── darwin/                  # macOS のシステム領域。nix-darwin モジュール
+    ├── default.nix
+    ├── system.nix           # Dock / Finder / キーボードなど defaults write 相当
+    └── homebrew.nix         # Cask / brew formula / Mac App Store
+```
 
-通常のパッケージマネージャ（apt、brew など）との大きな違いは、**再現性（reproducibility）** にあります。
+設計の指針:
 
-| 通常のパッケージマネージャ | Nix |
-|---|---|
-| 同じコマンドでも環境によって結果が変わりうる | 同じ設定ファイルから必ず同じ環境が作られる |
-| 削除しても依存関係が残ることがある | クリーンなアンインストールが可能 |
-| バージョンが自動で上がることがある | バージョンをロックファイルで管理できる |
-
-> **NixはmacでもLinuxでも使えます。**
+- **OS 共通の設定は `home/` に置く**。Ubuntu でも macOS でも同じものが入る。
+- **OS 固有の設定だけ `darwin/` に置く**。Linux 用の似た層が要るときは `nixos/` を増やす。
+- **ホスト構成は `hosts/` に集約する**。新しいマシンを足すときは
+  `flake.nix` の outputs と `hosts/<name>.nix` を 1 つ書くだけで済む。
 
 ---
 
-## 3. なぜNixでdotfilesを管理するのか？
+## 前提ソフトウェアのインストール
 
-従来のdotfiles管理（シンボリックリンクなど）と比べたNixの利点：
+### 共通: Nix
 
-1. **宣言的（Declarative）** — 「こういう状態にしたい」と書くだけで、Nixが実現してくれる
-2. **再現性** — 新しいマシンでも`nix switch`一発で完全に同じ環境が作られる
-3. **ロールバック** — 設定を変更して壊れても、以前の状態に戻せる
-4. **パッケージ管理も一緒に** — インストールするツールも同じ設定ファイルで管理できる
-
----
-
-## 4. 用語解説
-
-このチュートリアルで登場する用語を事前に説明します。
-
-### Nix言語
-
-設定ファイルを書くための関数型プログラミング言語です。`.nix` という拡張子のファイルに書きます。
-
-```nix
-# これはNix言語のコメント
-{
-  # 属性セット（JSONのオブジェクトに近い）
-  name = "Alice";
-  age = 30;
-
-  # リスト
-  tools = [ "git" "vim" "curl" ];
-}
-```
-
-### Nix Flakes（フレークス）
-
-Nixの設定を**モジュール化・バージョン管理**するための仕組みです。`flake.nix` というファイルが入口になります。
-
-- **inputs** — 依存するNixパッケージ集（nixpkgs）やツール（home-manager）のバージョンを指定
-- **outputs** — この flake が提供する設定（各マシンの設定など）を定義
-
-```
-flake.nix   ← 入口：依存関係とマシン設定の一覧
-flake.lock  ← 自動生成：依存関係の正確なバージョンが記録される（Gitのコミットハッシュなど）
-```
-
-### Home Manager
-
-Nix を使って**ユーザーレベルの設定**（dotfiles、ツールのインストールなど）を管理するツールです。
-
-- シェルの設定
-- Gitの設定
-- 各種ツールのインストール
-
-などを `.nix` ファイルで一元管理できます。
-
-### nixpkgs
-
-Nix の公式パッケージリポジトリです。80,000以上のパッケージが収録されています。`pkgs.git`、`pkgs.curl` のように参照します。
-
----
-
-## 5. 環境のセットアップ
-
-### Nixのインストール
-
-[Determinate Systems の Nix インストーラー](https://determinate.systems/posts/determinate-nix-installer) を使うと、Flakes が最初から有効な状態でインストールできます。
+[Determinate Nix Installer](https://github.com/DeterminateSystems/nix-installer) を推奨。
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+curl --proto '=https' --tlsv1.2 -sSf -L \
+  https://install.determinate.systems/nix | sh -s -- install
 ```
 
-> **公式インストーラーとの違い**: Determinate Systems版はFlakesが最初から有効で、アンインストールも簡単です。
+flakes と nix command はインストーラが既定で有効化してくれる。
+公式インストーラを使った場合は `~/.config/nix/nix.conf` に
+`experimental-features = nix-command flakes` を追記する。
 
-インストール後、新しいターミナルを開いてから確認：
+### macOS のみ: Homebrew
+
+nix-darwin の Homebrew モジュールは「Homebrew 本体が入っている前提」で動くため、
+先に入れておく:
 
 ```bash
-nix --version
-# nix (Nix) 2.x.x
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
-
-### Home Managerのインストール
-
-後の手順で `flake.nix` に組み込む形で使うため、**別途インストールは不要**です。
 
 ---
 
-## 6. ディレクトリ構成
+## 初回セットアップ
 
-このチュートリアルで作成するファイルの構成です：
+```bash
+# 自分のフォークを clone する想定
+git clone git@github.com:<you>/dotfiles-nix.git
+cd dotfiles-nix
 
+# 個人情報を書き換える: flake.nix の `userInfo`
+#   username    : OS のユーザー名
+#   gitName     : git のコミッタ名
+#   gitEmail    : git のコミットアドレス
+$EDITOR flake.nix
 ```
-~/dotfiles/
-├── flake.nix          # Nix Flakeの入口
-├── flake.lock         # 自動生成されるロックファイル（触らない）
-└── home.nix           # Home Managerの設定（メイン）
+
+### Ubuntu (standalone home-manager)
+
+```bash
+# 初回は home-manager コマンド自体を nix run で持ってくる
+nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
+
+# 以降は home-manager コマンドが PATH に入っているのでそれを使う
+home-manager switch --flake .#zenimoto@ubuntu
 ```
 
-シンプルに保つため、まず2つのファイルだけで始めます。
+### macOS (nix-darwin)
+
+```bash
+# nix-darwin を初回だけブートストラップ
+nix run nix-darwin -- switch --flake .#mac
+
+# 以降は darwin-rebuild が使える
+sudo darwin-rebuild switch --flake .#mac
+```
+
+`mac` という名前は `flake.nix` の `darwinConfigurations.<name>` に対応する。
+複数 Mac ある場合はこの名前を hostname ごとに分ける。
 
 ---
 
-## 7. 設定ファイルを書く
-
-### リポジトリを作成する
+## 日々の運用
 
 ```bash
-mkdir ~/dotfiles
-cd ~/dotfiles
-git init
-```
+# 設定を編集したあとの反映
+home-manager switch --flake .#zenimoto@ubuntu      # Ubuntu
+sudo darwin-rebuild switch --flake .#mac           # macOS
 
-### `flake.nix` を書く
-
-```nix
-{
-  description = "My dotfiles";
-
-  inputs = {
-    # nixpkgs: Nixの公式パッケージリポジトリ
-    # "nixos-unstable" は最新パッケージが揃っているブランチ
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-    # home-manager: ユーザー設定を管理するツール
-    # "follows" により、nixpkgsのバージョンをhome-managerと統一する
-    home-manager = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
-
-  outputs = { nixpkgs, home-manager, ... }:
-  let
-    # 使用するシステムアーキテクチャを指定
-    # Linux (x86_64) の場合: "x86_64-linux"
-    # Mac (Apple Silicon) の場合: "aarch64-darwin"
-    # Mac (Intel) の場合: "x86_64-darwin"
-    system = "x86_64-linux";
-
-    pkgs = nixpkgs.legacyPackages.${system};
-  in
-  {
-    # homeConfigurations: Home Managerの設定
-    # "yourname" の部分は実際のユーザー名に変更してください
-    homeConfigurations."yourname" = home-manager.lib.homeManagerConfiguration {
-      inherit pkgs;
-
-      modules = [ ./home.nix ];
-    };
-  };
-}
-```
-
-> **ポイント**: `system` と `"yourname"` の部分は自分の環境に合わせて変更してください。
-
-### `home.nix` を書く
-
-```nix
-{ pkgs, ... }:
-
-{
-  # Home Managerが管理するユーザーのホームディレクトリ
-  home.username = "yourname";      # 実際のユーザー名に変更
-  home.homeDirectory = "/home/yourname";  # Macの場合は /Users/yourname
-
-  # Home Manager 自体のバージョン互換性設定
-  # 初回設定時のバージョンを書いておく（アップデート時に変更しない）
-  home.stateVersion = "25.05";
-
-  # ─────────────────────────────────────────
-  # インストールするパッケージの一覧
-  # ─────────────────────────────────────────
-  home.packages = with pkgs; [
-    # ファイル検索
-    ripgrep   # rg コマンド：高速なgrep代替
-    fd        # find コマンドの代替
-
-    # ファイル表示
-    bat       # cat コマンドの代替（シンタックスハイライト付き）
-    eza       # ls コマンドの代替（色付き、Gitステータス表示）
-
-    # その他ユーティリティ
-    curl
-    jq        # JSONの整形・クエリツール
-  ];
-
-  # ─────────────────────────────────────────
-  # Gitの設定
-  # ─────────────────────────────────────────
-  programs.git = {
-    enable = true;
-    userName = "Your Name";          # GitHubなどで使う名前
-    userEmail = "you@example.com";   # GitHubなどで使うメールアドレス
-
-    extraConfig = {
-      # デフォルトブランチ名を "main" にする
-      init.defaultBranch = "main";
-
-      # git pull 時にリベースを使う（マージコミットを作らない）
-      pull.rebase = true;
-
-      # git push 時に現在のブランチを自動でリモートに設定
-      push.autoSetupRemote = true;
-    };
-  };
-
-  # ─────────────────────────────────────────
-  # Bashシェルの設定
-  # ─────────────────────────────────────────
-  programs.bash = {
-    enable = true;
-
-    # シェル起動時に実行されるコマンド
-    initExtra = ''
-      # eza を ls の代わりに使う
-      alias ls='eza --icons'
-      alias ll='eza -la --icons'
-
-      # bat を cat の代わりに使う
-      alias cat='bat'
-    '';
-  };
-
-  # ─────────────────────────────────────────
-  # Home Manager 自体も Home Manager で管理する
-  # ─────────────────────────────────────────
-  programs.home-manager.enable = true;
-}
-```
-
-> **`with pkgs;` について**: `with pkgs;` を使うと、`pkgs.ripgrep` と書く代わりに `ripgrep` と書けます。
-
----
-
-## 8. 設定を適用する
-
-### 初回セットアップ
-
-```bash
-cd ~/dotfiles
-
-# flake.lock を生成（初回のみ）
+# 依存パッケージのアップデート (flake.lock を更新)
 nix flake update
 
-# 設定を適用
-# "yourname" は flake.nix で設定したユーザー名に合わせる
-nix run home-manager/master -- switch --flake .#yourname
+# どんな差分が当たるか事前確認
+nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage
 ```
 
-### 2回目以降の適用
+切り戻し:
 
 ```bash
-cd ~/dotfiles
-home-manager switch --flake .#yourname
-```
+# Home Manager は世代ベースで戻れる
+home-manager generations
+/nix/store/...-home-manager-generation/activate   # 任意の世代に戻す
 
-### 確認してみる
-
-```bash
-# ripgrep が使えるか確認
-rg --version
-
-# bat が使えるか確認
-bat --version
-
-# git の設定が反映されているか確認
-git config --global --list
+# nix-darwin 側
+sudo darwin-rebuild --list-generations
+sudo darwin-rebuild --switch-generation <n>
 ```
 
 ---
 
-## 9. 日常的な使い方
+## カスタマイズの勘どころ
 
-### 設定を変更する
-
-1. `home.nix` を編集する
-2. `home-manager switch --flake .#yourname` を実行
-3. 変更が即座に反映される
-
-### パッケージを追加する
-
-`home.nix` の `home.packages` にパッケージ名を追加して `switch` するだけです：
-
-```nix
-home.packages = with pkgs; [
-  ripgrep
-  fd
-  bat
-  eza
-  curl
-  jq
-  # ↓ 追加したいパッケージをここに書く
-  htop      # プロセスモニター
-  tree      # ディレクトリツリー表示
-];
-```
-
-### パッケージ名を調べる
-
-[search.nixos.org](https://search.nixos.org/packages) でパッケージを検索できます。
-
-```bash
-# コマンドラインからも検索可能
-nix search nixpkgs htop
-```
-
-### 依存関係を最新にする
-
-```bash
-cd ~/dotfiles
-nix flake update        # flake.lock を最新に更新
-home-manager switch --flake .#yourname  # 適用
-```
-
-### ロールバック（元に戻す）
-
-```bash
-# 一世代前の設定に戻す
-home-manager generations   # 世代の一覧を見る
-home-manager rollback      # 直前の世代に戻す
-```
-
-### 設定をGitで管理する
-
-```bash
-cd ~/dotfiles
-git add flake.nix flake.lock home.nix
-git commit -m "Initial dotfiles setup"
-
-# GitHubにpushして保存・公開
-git remote add origin https://github.com/yourusername/dotfiles.git
-git push -u origin main
-```
+- **新しい CLI ツールを足したい** → `home/packages.nix` の `home.packages` に追加。
+  シェル統合が必要なものは `home/cli/<name>.nix` を作って `home/cli/default.nix` で imports する。
+- **Mac の GUI アプリを足したい** → `darwin/homebrew.nix` の `casks` に追加。
+- **fish のプラグインを足したい** → `home/shell/fish.nix` の `plugins` に
+  `{ name; src = pkgs.fishPlugins.<name>.src; }` を追加。
+- **マシンを増やしたい** → `hosts/<name>.nix` を作り、`flake.nix` の outputs に登録。
 
 ---
 
-## 10. 次のステップ
+## 既知のハマりどころ
 
-基本的な設定ができたら、以下のような拡張を検討してみてください。
-
-### 設定をファイルに分ける
-
-`home.nix` が大きくなってきたら、ファイルを分割できます：
-
-```
-~/dotfiles/
-├── flake.nix
-├── home.nix          # メイン（importsでファイルを読み込む）
-├── git.nix           # Gitの設定
-├── shell.nix         # シェルの設定
-└── packages.nix      # パッケージ一覧
-```
-
-`home.nix` に `imports` を追加します：
-
-```nix
-{ pkgs, ... }:
-{
-  imports = [
-    ./git.nix
-    ./shell.nix
-    ./packages.nix
-  ];
-
-  home.username = "yourname";
-  home.homeDirectory = "/home/yourname";
-  home.stateVersion = "25.05";
-  programs.home-manager.enable = true;
-}
-```
-
-### よく使われる Home Manager のオプション
-
-```nix
-# Zshの設定
-programs.zsh = {
-  enable = true;
-  autosuggestion.enable = true;   # 入力補完
-  syntaxHighlighting.enable = true;  # シンタックスハイライト
-};
-
-# Fish shellの設定
-programs.fish = {
-  enable = true;
-};
-
-# SSH の設定
-programs.ssh = {
-  enable = true;
-  addKeysToAgent = "yes";
-};
-
-# direnv（ディレクトリごとに環境を切り替える）
-programs.direnv = {
-  enable = true;
-  nix-direnv.enable = true;  # Nixプロジェクトと連携
-};
-
-# starship（カスタムプロンプト）
-programs.starship = {
-  enable = true;
-};
-```
-
-### macOSの場合：nix-darwinも使う
-
-macOSをお使いの場合、[nix-darwin](https://github.com/LnL7/nix-darwin) を使うと、システムレベルの設定（Dockの設定、macOSのデフォルトなど）も Nix で管理できます。ただしこれは中級者向けです。
-
-### Home Manager のオプション一覧
-
-[Home Manager Option Search](https://home-manager-options.extranix.com/) で、利用可能なオプションを検索できます。
+- **`pure` と `starship` は同居しない**。fish プラグインの pure を使うなら
+  `home/shell/starship.nix` の `enableFishIntegration = false` にするか、starship 側を無効化する。
+- **macOS の `system.defaults` の一部はログアウトしないと反映されない** (Dock など)。
+- **Homebrew の `cleanup = "zap"`** は、ここで宣言していないものを問答無用でアンインストールする。
+  既存環境を取り込む段階では `"check"` または `"uninstall"` の方が安全。
+- **`programs.zed-editor` モジュール (HM)** は OS によっては Linux ビルドを引いてくる。
+  ここでは GUI 本体は Homebrew 任せにし、設定 JSON だけ Nix から生成している。
+- **fish_plugins (fisher)** をリポジトリに残しても Nix 管理下では機能しないので消して良い。
 
 ---
 
-## トラブルシューティング
+## 参考
 
-### `nix` コマンドが見つからない
-
-新しいターミナルを開く、またはシェルを再起動してください：
-
-```bash
-source ~/.bashrc  # または source ~/.zshrc
-```
-
-### `home-manager` コマンドが見つからない
-
-`home.nix` に以下が含まれているか確認してください：
-
-```nix
-programs.home-manager.enable = true;
-```
-
-その後、フルパスで実行：
-
-```bash
-nix run home-manager/master -- switch --flake .#yourname
-```
-
-### パッケージが見つからないエラー
-
-パッケージ名が間違っている可能性があります。[search.nixos.org](https://search.nixos.org/packages) で正確な名前を調べてください。
-
-### flake.lock の競合
-
-```bash
-nix flake update  # ロックファイルを再生成
-```
-
----
-
-## 参考リソース
-
-- [nixpkgs パッケージ検索](https://search.nixos.org/packages)
-- [Home Manager オプション検索](https://home-manager-options.extranix.com/)
-- [Nix公式ドキュメント](https://nix.dev/)
-- [Home Manager公式ドキュメント](https://nix-community.github.io/home-manager/)
-- [Zero to Nix（英語入門サイト）](https://zero-to-nix.com/)
-- [参考にしたdotfiles: ryoppippi/dotfiles](https://github.com/ryoppippi/dotfiles)
+- 元になった dotfiles: <https://github.com/Zeni-Y/dotfiles>
+- Nix Flakes: <https://nix.dev/concepts/flakes>
+- Home Manager: <https://nix-community.github.io/home-manager/>
+- nix-darwin: <https://github.com/nix-darwin/nix-darwin>
