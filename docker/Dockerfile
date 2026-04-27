@@ -47,6 +47,13 @@ COPY --chown=${USERNAME}:${USERNAME} . /home/${USERNAME}/dotfiles-nix/
 
 WORKDIR /home/${USERNAME}/dotfiles-nix
 
+# ── Windows CRLF を除去 ──────────────────────────────────
+# Windows 環境では git が .nix/.sh を CRLF でチェックアウトする場合がある。
+# .nix に CR が残ると home-manager が生成する bash スクリプトに
+# `fi\r` が入り、bash の構文チェックが失敗する。
+RUN find . \( -name "*.nix" -o -name "*.sh" \) -print0 \
+    | xargs -0 sed -i 's/\r$//'
+
 # ── デフォルト: テストスクリプトを実行 ───────────────────
 # インタラクティブシェルに切り替える場合:
 #   docker run --rm -it dotfiles-nix-test bash
