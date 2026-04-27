@@ -50,6 +50,42 @@ Dockerfile が行うこと:
 | Flakes を有効化 | `~/.config/nix/nix.conf` に追記 |
 | dotfiles をコンテナにコピー | |
 
+#### Nix シングルユーザーモード (`--no-daemon`) とは
+
+Nix のインストールには **マルチユーザーモード** と **シングルユーザーモード** の 2 種類があります。
+
+| モード | 仕組み | 主な用途 |
+|---|---|---|
+| マルチユーザー (通常デフォルト) | `nix-daemon` が root 権限で `/nix/store` を管理 | 通常の Linux / macOS 環境 |
+| シングルユーザー (`--no-daemon`) | ユーザー自身が直接 `/nix/store` に書き込む | Docker など |
+
+Docker コンテナには `systemd` や `launchd` などのサービスマネージャーが存在しないため、
+`nix-daemon` プロセスを起動できません。
+`--no-daemon` を指定することで、デーモンなしでも Nix が動作する **シングルユーザーモード** でインストールされます。
+
+> **注意**: シングルユーザーモードでは `/nix/store` の所有者がそのユーザーになります。
+> 複数ユーザーが共有するサーバーには適しませんが、Docker の 1 ユーザー環境では問題ありません。
+
+#### Flakes の有効化 (`experimental-features`) とは
+
+Flakes は Nix の**再現性を高める仕組み**で、`flake.nix` と `flake.lock` を組み合わせて
+依存パッケージのバージョンを完全に固定します。このリポジトリの設定はすべて Flakes の上に成り立っています。
+
+2024 年時点で Flakes は公式には「実験的機能」扱いのため、デフォルトでは無効です。
+`~/.config/nix/nix.conf` に以下を追記することで有効化されます。
+
+```
+experimental-features = nix-command flakes
+```
+
+| 機能名 | 内容 |
+|---|---|
+| `nix-command` | 新しい統合 CLI (`nix build`, `nix eval`, `nix flake` など) を有効化 |
+| `flakes` | `flake.nix` / `flake.lock` によるパッケージ管理を有効化 |
+
+> **補足**: 通常の macOS / Linux 環境でも、同じ設定が必要です。
+> Flakes の詳細は `docs/nix-concepts.md` を参照してください。
+
 > **初回ビルド時間の目安**: 約 2〜5 分 (Nix のダウンロードを含む)
 
 ### 2. テストを実行する
