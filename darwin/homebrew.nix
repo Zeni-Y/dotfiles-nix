@@ -1,15 +1,31 @@
 # ─────────────────────────────────────────────────────────────
 # Homebrew (macOS 専用)
 #
-# nix-darwin の Homebrew モジュールは brew コマンドを呼び出す
-# 薄いラッパーで、宣言的に Cask / formula を維持できる。
+# - nix-homebrew : Homebrew 本体を nix-darwin の activation で
+#                  自動インストール / 更新する。
+# - homebrew     : nix-darwin 標準モジュール。Cask / formula を
+#                  宣言的に維持する。
 #
-# 前提: 事前に Homebrew 本体を入れておく必要がある
-#   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# これにより `sudo nix run nix-darwin -- switch --flake .#<host>`
+# 一発で Homebrew 自体のセットアップから Cask 適用までが完了する。
 # ─────────────────────────────────────────────────────────────
-{ ... }:
+{ inputs, userInfo, ... }:
 
 {
+  imports = [
+    inputs.nix-homebrew.darwinModules.nix-homebrew
+  ];
+
+  # Homebrew 本体のブートストラップ。
+  # 既に手動で /opt/homebrew や /usr/local が存在する場合でも
+  # autoMigrate = true で nix-homebrew の管理下に取り込む。
+  nix-homebrew = {
+    enable = true;
+    user = userInfo.username;
+    enableRosetta = true;   # Apple Silicon で x86_64 brew も使えるようにする
+    autoMigrate = true;
+  };
+
   homebrew = {
     enable = true;
 
