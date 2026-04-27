@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────
-# dotfiles-nix テスト環境 (Ubuntu 24.04 + Nix single-user)
+# dotfiles-nix テスト環境 (Ubuntu 24.04 + Determinate Systems nix-installer)
 #
 # ビルドはリポジトリルートから実行する:
 #   docker build -f docker/Dockerfile -t dotfiles-nix-test .
@@ -29,17 +29,16 @@ ARG USERNAME=zenimoto
 RUN useradd -m -s /bin/bash "${USERNAME}" && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
+# ── Nix をインストール (Determinate Systems nix-installer) ──
+# root として実行: multi-user インストールのため /nix の作成に root 権限が必要。
+# --init none: systemd 等 init system への登録をスキップ (Docker に向いた方式)
+# --no-confirm: 非インタラクティブ環境での確認プロンプトをスキップ
+# nix-command・flakes は Determinate installer がデフォルトで /etc/nix/nix.conf に追加する。
+RUN curl -fsSL https://install.determinate.systems/nix | \
+    sh -s -- install linux --init none --no-confirm
+
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
-
-# ── Nix をシングルユーザーモードでインストール ─────────────
-# --no-daemon: nix-daemon を起動しない (Docker に向いた方式)
-RUN curl --proto '=https' --tlsv1.2 -sSf -L \
-      https://nixos.org/nix/install | sh -s -- --no-daemon
-
-# ── Flakes を有効化 ───────────────────────────────────────
-RUN mkdir -p .config/nix && \
-    echo 'experimental-features = nix-command flakes' >> .config/nix/nix.conf
 
 # ── dotfiles をコンテナにコピー ───────────────────────────
 # ビルドコンテキスト (リポジトリルート) の全ファイルをコピー。

@@ -46,33 +46,44 @@ Dockerfile が行うこと:
 |---|---|
 | Ubuntu 24.04 をベースにする | |
 | `zenimoto` ユーザーを作成 | `flake.nix` の `userInfo.username` と一致させる |
-| Nix をシングルユーザーモードでインストール | `--no-daemon` でデーモン不要 |
-| Flakes を有効化 | `~/.config/nix/nix.conf` に追記 |
+| Nix をインストール (Determinate Systems installer) | `--init none` で init system 登録をスキップ |
 | dotfiles をコンテナにコピー | |
 
-#### Nix シングルユーザーモード (`--no-daemon`) とは
+#### Determinate Systems nix-installer と `--init none` とは
 
-Nix のインストールには **マルチユーザーモード** と **シングルユーザーモード** の 2 種類があります。
+[Determinate Systems nix-installer](https://github.com/DeterminateSystems/nix-installer) は、
+公式インストーラーよりも信頼性・再現性が高い代替インストーラーです。
 
-| モード | 仕組み | 主な用途 |
-|---|---|---|
-| マルチユーザー (通常デフォルト) | `nix-daemon` が root 権限で `/nix/store` を管理 | 通常の Linux / macOS 環境 |
-| シングルユーザー (`--no-daemon`) | ユーザー自身が直接 `/nix/store` に書き込む | Docker など |
+```bash
+curl -fsSL https://install.determinate.systems/nix | sh -s -- install linux --init none --no-confirm
+```
 
-Docker コンテナには `systemd` や `launchd` などのサービスマネージャーが存在しないため、
-`nix-daemon` プロセスを起動できません。
-`--no-daemon` を指定することで、デーモンなしでも Nix が動作する **シングルユーザーモード** でインストールされます。
+| オプション | 意味 |
+|---|---|
+| `install linux` | Linux 向けインストールを実行 |
+| `--init none` | systemd 等 init system へのサービス登録をスキップ |
+| `--no-confirm` | 確認プロンプトを省略 (非インタラクティブ環境向け) |
 
-> **注意**: シングルユーザーモードでは `/nix/store` の所有者がそのユーザーになります。
-> 複数ユーザーが共有するサーバーには適しませんが、Docker の 1 ユーザー環境では問題ありません。
+**なぜ `--init none` が必要か**
+
+通常の Linux 環境では `nix-daemon` を systemd サービスとして登録し、起動時に自動起動させます。
+しかし Docker コンテナには systemd が存在しないため、サービス登録を試みるとインストールが失敗します。
+`--init none` を指定することでサービス登録をスキップし、Docker コンテナ内でも正常にインストールが完了します。
+
+インストール後は `nix-daemon` が自動起動しないため、テストスクリプト (`test.sh`) が
+起動時に手動で `nix-daemon` を起動します。
+
+> **公式インストーラーとの違い**  
+> 公式インストーラー (`nixos.org/nix/install`) は `--no-daemon` でシングルユーザーモードになりますが、
+> Determinate installer は常にマルチユーザーモードでインストールします。
+> マルチユーザーモードは `/nix/store` を複数ユーザーで共有でき、セキュリティ上も優れています。
 
 #### Flakes の有効化 (`experimental-features`) とは
 
 Flakes は Nix の**再現性を高める仕組み**で、`flake.nix` と `flake.lock` を組み合わせて
 依存パッケージのバージョンを完全に固定します。このリポジトリの設定はすべて Flakes の上に成り立っています。
 
-2024 年時点で Flakes は公式には「実験的機能」扱いのため、デフォルトでは無効です。
-`~/.config/nix/nix.conf` に以下を追記することで有効化されます。
+2024 年時点で Flakes は公式には「実験的機能」扱いのため、通常は `nix.conf` に手動で追記が必要です。
 
 ```
 experimental-features = nix-command flakes
@@ -82,6 +93,11 @@ experimental-features = nix-command flakes
 |---|---|
 | `nix-command` | 新しい統合 CLI (`nix build`, `nix eval`, `nix flake` など) を有効化 |
 | `flakes` | `flake.nix` / `flake.lock` によるパッケージ管理を有効化 |
+
+**Determinate installer を使う場合**
+
+Determinate installer はインストール時に `/etc/nix/nix.conf` へ自動で追記するため、
+手動での設定は不要です。これも Determinate installer の利点の一つです。
 
 > **補足**: 通常の macOS / Linux 環境でも、同じ設定が必要です。
 > Flakes の詳細は `docs/nix-concepts.md` を参照してください。
@@ -124,8 +140,10 @@ docker run --rm -it dotfiles-nix-test bash
 コンテナ内で使えるコマンド例:
 
 ```bash
-# Nix 環境を読み込む (ログインシェルでない場合は必要)
-. ~/.nix-profile/etc/profile.d/nix.sh
+# nix-daemon を起動してから Nix 環境を読み込む
+sudo /nix/var/nix/profiles/default/bin/nix-daemon &
+sleep 2
+. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 
 # flake の outputs を確認
 nix flake show
@@ -156,8 +174,10 @@ docker run --rm -it \
   -v "$(pwd):/home/zenimoto/dotfiles-nix" \
   dotfiles-nix-test bash
 
-# コンテナ内で Nix を読み込み、評価を試す
-. ~/.nix-profile/etc/profile.d/nix.sh
+# コンテナ内で nix-daemon を起動して Nix を読み込む
+sudo /nix/var/nix/profiles/default/bin/nix-daemon &
+sleep 2
+. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 cd ~/dotfiles-nix
 nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
 ```

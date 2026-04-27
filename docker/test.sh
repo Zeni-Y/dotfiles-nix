@@ -2,9 +2,15 @@
 # dotfiles-nix の動作確認テストスクリプト (Ubuntu ターゲット)
 set -euo pipefail
 
-# Nix の環境変数・PATH を読み込む
+# nix-daemon を起動する
+# Determinate Systems installer は multi-user モードでインストールされるが、
+# --init none により init system (systemd 等) には登録されないため手動起動が必要。
+sudo /nix/var/nix/profiles/default/bin/nix-daemon &
+sleep 2
+
+# Nix の環境変数・PATH を読み込む (Determinate Systems installer のパス)
 # shellcheck source=/dev/null
-. ~/.nix-profile/etc/profile.d/nix.sh
+. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 
 cd ~/dotfiles-nix
 
