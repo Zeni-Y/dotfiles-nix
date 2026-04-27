@@ -24,8 +24,8 @@ inputs.home-manager.lib.homeManagerConfiguration {
       home.homeDirectory = "/home/${userInfo.username}";
       home.stateVersion = "25.05";
 
-      programs.git.userName = userInfo.gitName;
-      programs.git.userEmail = userInfo.gitEmail;
+      programs.git.settings.user.name = userInfo.gitName;
+      programs.git.settings.user.email = userInfo.gitEmail;
     }
   ];
 }

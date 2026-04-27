@@ -19,6 +19,10 @@ inputs.nix-darwin.lib.darwinSystem {
     {
       nixpkgs.config.allowUnfree = true;
 
+      # nix-darwin now requires primaryUser to be set explicitly for
+      # any options that apply to a specific user (Homebrew, system.defaults, etc.)
+      system.primaryUser = userInfo.username;
+
       users.users.${userInfo.username}.home = "/Users/${userInfo.username}";
 
       # Home Manager を nix-darwin に同居させる設定
@@ -32,8 +36,8 @@ inputs.nix-darwin.lib.darwinSystem {
         home.homeDirectory = "/Users/${userInfo.username}";
         home.stateVersion = "25.05";
 
-        programs.git.userName = userInfo.gitName;
-        programs.git.userEmail = userInfo.gitEmail;
+        programs.git.settings.user.name = userInfo.gitName;
+        programs.git.settings.user.email = userInfo.gitEmail;
       };
     }
   ];

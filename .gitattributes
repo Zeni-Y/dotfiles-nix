@@ -1,0 +1,7 @@
+# Ensure shell scripts always use LF line endings.
+# On Windows, git defaults to CRLF checkout (core.autocrlf=true),
+# which breaks bash's `set -euo pipefail` with "invalid option name".
+*.sh text eol=lf
+
+# Nix files are also Unix-only; keep them LF as well.
+*.nix text eol=lf
