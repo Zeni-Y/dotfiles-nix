@@ -13,6 +13,7 @@
 5. [Home Manager のライフサイクル](#5-home-manager-のライフサイクル)
 6. [nix-darwin のライフサイクル](#6-nix-darwin-のライフサイクル)
 7. [よく使うコマンド早見表](#7-よく使うコマンド早見表)
+8. [外部ツールによる変更を Nix に取り込む](#8-外部ツールによる変更を-nix-に取り込む)
 
 ---
 
@@ -637,6 +638,200 @@ nix eval .#homeConfigurations."zenimoto@ubuntu".config.home.packages
 # ビルドログを詳細表示
 home-manager switch --flake .#zenimoto@ubuntu --show-trace
 ```
+
+---
+
+## 8. 外部ツールによる変更を Nix に取り込む
+
+外部ツール (Claude Code、`git config --global`、エディタの設定 UI など) が
+設定ファイルを書き換えようとしたとき、または書き換えた結果を Nix 設定に反映したいときの
+対処法をまとめます。
+
+### 8-1. まず「Nix が管理しているか」を確認する
+
+HM が管理する設定ファイルは **Nix ストアへの symlink** になっており、**読み取り専用** です。
+
+```bash
+# symlink かどうか確認
+ls -la ~/.config/git/config
+
+# Nix 管理下の場合 (読み取り専用)
+# ~/.config/git/config -> /nix/store/<hash>-home-manager-files/.config/git/config
+
+# Nix 非管理の場合 (通常のファイル)
+# ~/.config/git/config
+```
+
+これにより 2 つのケースに分かれます。
+
+---
+
+### 8-2. ケース A: Nix が管理しているファイルを変更したい
+
+`programs.git` などで管理している場合、**外部ツールからの書き込みは失敗します**。
+
+```bash
+# 例: git config --global は読み取り専用の symlink に書こうとして失敗する
+git config --global user.email "new@example.com"
+# error: could not lock config file: Read-only file system
+```
+
+**対処: .nix ファイルを編集 → switch する**
+
+```bash
+# 1. 対応する .nix ファイルを開いて値を変更する
+#    例: git のメールを変えたい → home/git.nix の userEmail を編集
+$EDITOR home/git.nix
+
+# 2. 設定を反映する
+home-manager switch --flake .#zenimoto@ubuntu   # Ubuntu
+sudo darwin-rebuild switch --flake .#mac         # macOS
+```
+
+> **重要**: 次の `switch` まで古い値が使われます。ツールが「設定を変更した」と報告しても、
+> 実際には書き込みに失敗している場合があります。`ls -la` で symlink を確認してください。
+
+---
+
+### 8-3. ケース B: Nix が管理していないファイルが変更された
+
+Claude Code の `settings.json` など、このリポジトリで宣言していないファイルは
+ツールが自由に読み書きできます。
+
+```
+~/.config/claude/settings.json   ← Nix 非管理 → Claude が自由に変更できる
+~/.config/git/config             ← Nix 管理   → 読み取り専用
+```
+
+変更内容を Nix で管理したくなった場合の手順:
+
+```bash
+# 1. 現在のファイル内容を確認
+cat ~/.config/claude/settings.json
+
+# 2. 対応する .nix ファイルに内容を移す
+#    例: xdg.configFile を使う場合
+$EDITOR home/editors/neovim.nix   # 適切なモジュールに追記
+```
+
+```nix
+# home/ 内の適当なファイルに追記する例
+xdg.configFile."claude/settings.json".text = builtins.toJSON {
+  theme = "dark";
+  # ... ツールが書いた内容をここに転記
+};
+```
+
+```bash
+# 3. switch → 以降はこのファイルも Nix 管理になり読み取り専用になる
+home-manager switch --flake .#zenimoto@ubuntu
+```
+
+> **注意**: Nix 管理下に置くと、以降 Claude Code は自動的にこのファイルを更新できなくなります。
+> ツールが設定を自動保存する場合は、Nix 管理外のままにしておく方が実用的です (→ 8-4 参照)。
+
+---
+
+### 8-4. 「ツールに自動更新させたい」場合の方針
+
+Claude Code・エディタのプラグイン設定など、**ツールが頻繁に自動書き換えるファイル**は
+Nix 管理外のままにしておくのが現実的です。
+
+| ファイルの性質 | 推奨方針 |
+|---|---|
+| ほぼ変わらない (git のユーザー名など) | Nix で管理 (`programs.git` など) |
+| 手動でたまに変える | Nix で管理してもよい |
+| ツールが頻繁に自動更新する (Claude 設定、LSP キャッシュなど) | **Nix 管理外のままにする** |
+| 秘密情報を含む (トークン、パスワード) | **絶対に Nix 管理しない** (Nix store は全ユーザーが読める) |
+
+#### 「Nix 管理外」のファイルをバージョン管理したい場合
+
+Nix ではなく git で直接追跡します。
+
+```bash
+# dotfiles-nix リポジトリ内に置いて git で管理する
+mkdir -p extras/
+cp ~/.config/claude/settings.json extras/claude-settings.json
+git add extras/claude-settings.json
+git commit -m "chore: Claude Code 設定をバックアップ"
+
+# 新しいマシンへの移植は手動コピー
+cp extras/claude-settings.json ~/.config/claude/settings.json
+```
+
+---
+
+### 8-5. 変更を Nix に取り込む標準的なワークフロー
+
+外部ツールが設定を変更した後の「逆引き反映」の手順をまとめます。
+
+```
+外部ツールが設定を変更した
+        │
+        ▼
+ls -la <変更されたファイル>
+        │
+        ├─ symlink → /nix/store/... (Nix 管理)
+        │       │
+        │       └─ 実際には書き込み失敗している
+        │          → .nix ファイルを直接編集 → switch
+        │
+        └─ 通常ファイル (Nix 非管理)
+                │
+                ├─ Nix で管理したい
+                │     → .nix に内容を転記 → switch
+                │       (以降ツールは自動更新できなくなる)
+                │
+                └─ Nix 管理不要 (ツールが頻繁に更新するなど)
+                      → git で直接管理 or 管理しない
+```
+
+#### 具体例: `git config --global` で変更した設定を Nix に反映する
+
+```bash
+# ❌ これは読み取り専用のため失敗する
+git config --global core.autocrlf false
+
+# ✅ 正しい手順: home/git.nix を編集する
+```
+
+```nix
+# home/git.nix
+programs.git = {
+  extraConfig = {
+    core.autocrlf = false;  # ← ここに追記
+  };
+};
+```
+
+```bash
+home-manager switch --flake .#zenimoto@ubuntu
+```
+
+#### 具体例: Claude Code が `~/.config/claude/settings.json` を更新した
+
+このリポジトリでは Claude の設定を Nix 管理外にしているため、
+Claude が書き換えた内容はそのまま有効です。次の `switch` で上書きされることもありません。
+
+設定を dotfiles に残したい場合は `extras/` に手動コピーして git で管理します。
+
+---
+
+### 8-6. `home-manager switch` は Nix 宣言を強制適用する
+
+どのケースでも共通して覚えておくべきことがあります:
+
+> **`home-manager switch` を実行すると、Nix で宣言した値がすべて強制的に適用されます。**
+> Nix 管理下のファイルへの「switch 間の手動変更」はすべて上書きされます。
+
+これを逆に活用すると:
+
+```bash
+# 設定が壊れた/汚れた → switch するだけで Nix 宣言の状態に戻る
+home-manager switch --flake .#zenimoto@ubuntu
+```
+
+Nix 管理の設定は「ソースオブトゥルース (.nix ファイル)」に常に戻せる、という保証になります。
 
 ---
 
