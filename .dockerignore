@@ -1,0 +1,14 @@
+# Git の履歴はコンテナ不要
+.git/
+.gitignore
+
+# nix build の結果シンボリックリンク
+result
+result-*
+
+# エディタ・IDE の一時ファイル
+.direnv/
+.envrc
+*.swp
+*.swo
+.DS_Store
