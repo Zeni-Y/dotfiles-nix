@@ -268,12 +268,40 @@ sudo darwin-rebuild --switch-generation <n>
 
 ## 既知のハマりどころ
 
+- **初回 `home-manager switch` では `-b backup` を付ける** (Linux の standalone モード)。
+  既存の `~/.bashrc` / `~/.profile` などがあると Home Manager は黙って上書きせず
+  `Existing file '...' would be clobbered` で停止する。`-b backup` を付ければ
+  `.backup` 拡張子で退避してからリンクを張り直してくれる。
+  ```bash
+  nix run home-manager -- switch -b backup --flake '.#zenimoto@ubuntu'
+  ```
+  2 度目以降の switch で同じバックアップが既にあるとまたぶつかるので、
+  別の拡張子 (`-b backup2`) にするか退避済みファイルを消す。
+- **`home-manager news` / `generations` などのサブコマンドも `--flake` が必要**。
+  flake 構成では `~/.config/home-manager/home.nix` が無いので、`--flake` 無しで
+  叩くと `No configuration file found` で落ちる。
+  ```bash
+  home-manager news --flake '.#zenimoto@ubuntu'
+  # 楽にしたいなら alias:
+  alias hm="home-manager --flake ~/dotfiles-nix#zenimoto@ubuntu"
+  # あるいは symlink を張って引数なしで呼べるようにする:
+  ln -sfn ~/dotfiles-nix ~/.config/home-manager
+  ```
+- **systemd 無しの環境 (Docker コンテナなど) では `nix-daemon` を手動起動する**。
+  `setup.sh` でインストール後、`opening lock file ".../big-lock": Permission denied`
+  が出るのは daemon が落ちているサイン。`~/.bashrc` に
+  `pgrep -x nix-daemon || sudo /nix/var/nix/profiles/default/bin/nix-daemon &` を
+  仕込んでおくと毎回手で叩かなくて済む。
 - **macOS の `system.defaults` の一部はログアウトしないと反映されない** (Dock など)。
 - **Homebrew の `cleanup = "zap"`** は、ここで宣言していないものを問答無用でアンインストールする。
   既存環境を取り込む段階では `"check"` または `"uninstall"` の方が安全。
 - **`pkgs.fishPlugins` にないプラグイン**を使いたい場合は `fetchFromGitHub` で src を固定する
   (詳細は `home/shell/fish.nix` のコメント参照)。
 - **fish_plugins (fisher)** をリポジトリに残しても Nix 管理下では機能しないので消して良い。
+
+Docker コンテナ固有のトラブル (UID/GID 不一致による
+`repository ... is not owned by current user`、`USER: unbound variable` など) は
+[docker/README.md の「よくあるエラーと対処」](docker/README.md#よくあるエラーと対処) を参照。
 
 ---
 
