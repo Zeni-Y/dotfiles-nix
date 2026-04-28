@@ -79,24 +79,32 @@ EOM
 # ─── nix-portable をダウンロード ─────────────────────────────
 # 参考: https://github.com/DavHau/nix-portable
 install_nix_portable() {
-    # ~/.local/bin を PATH の先頭に追加 (未追加の場合のみ)
+    # ~/.local/bin を PATH の先頭に追加する。
+    # 現在のプロセスにも反映しつつ、対話シェルが次回起動時にも読むよう
+    # 適切な rc ファイルへ追記する。
+    #
+    # rc ファイル選択:
+    #   bash → .bashrc (非ログイン対話シェル) と .profile (ログインシェル)
+    #   zsh  → .zshrc
+    # .profile だけだと Docker の `bash` などでは読まれないので注意。
     case ":$PATH:" in
         *":$HOME/.local/bin:"*) ;;
-        *)
-            export PATH="$HOME/.local/bin:$PATH"
-            if [ -n "${ZSH_VERSION:-}" ]; then
-                rcfile="$HOME/.zshrc"
-            else
-                rcfile="$HOME/.profile"
-            fi
-            # 既に書かれている場合は重複させない
-            if [ ! -f "$rcfile" ] || ! grep -qs '\.local/bin' "$rcfile"; then
-                printf '\n# Added by dotfiles-nix setup.sh\nexport PATH="$HOME/.local/bin:$PATH"\n' \
-                    >>"$rcfile"
-                ok "${rcfile} に PATH を追記しました"
-            fi
-            ;;
+        *) export PATH="$HOME/.local/bin:$PATH" ;;
     esac
+
+    case "${SHELL:-}" in
+        *zsh) rcfiles="$HOME/.zshrc" ;;
+        *)    rcfiles="$HOME/.bashrc $HOME/.profile" ;;
+    esac
+
+    for rcfile in $rcfiles; do
+        # 既に書かれている場合は重複させない
+        if [ ! -f "$rcfile" ] || ! grep -qs '\.local/bin' "$rcfile"; then
+            printf '\n# Added by dotfiles-nix setup.sh\nexport PATH="$HOME/.local/bin:$PATH"\n' \
+                >>"$rcfile"
+            ok "${rcfile} に PATH を追記しました"
+        fi
+    done
 
     target="$HOME/.local/bin/nix-portable"
     mkdir -p "$HOME/.local/bin"
