@@ -118,7 +118,9 @@ nix-portable nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateV
 nix-portable nix build '.#homeConfigurations."zenimoto@ubuntu".activationPackage'
 
 # 6. 実際に適用してみる (フルテスト)
-nix-portable nix run home-manager/master -- switch --flake '.#zenimoto@ubuntu'
+#    初回は -b backup を付けて Ubuntu 標準の ~/.bashrc / ~/.profile を
+#    .backup へ退避してから symlink を張る (詳細はトップ README 参照)
+nix-portable nix run home-manager/master -- switch -b backup --flake '.#zenimoto@ubuntu'
 fish --version
 ```
 
@@ -137,11 +139,14 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 # --- ここから先はコンテナ内 ---
 
 # 3. セットアップスクリプトを実行 (Determinate Nix Installer)
+#    setup.sh が ~/.bashrc に nix-daemon.sh の source 行と
+#    (systemd 無し環境では) nix-daemon の自動起動スニペットも追記する
 ./scripts/setup.sh
 # あるいは明示的に: ./scripts/setup.sh --system
 
-# 4. PATH を読み込んで Nix を使う
-. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+# 4. 新しいシェルに切り替えて ~/.bashrc を読み込む
+#    これで PATH が通り、systemd 無し環境では nix-daemon も自動起動する
+exec bash
 
 # 5. flake / Home Manager を試す
 nix flake metadata
@@ -149,7 +154,9 @@ nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
 nix build '.#homeConfigurations."zenimoto@ubuntu".activationPackage'
 
 # 6. 実際に適用してみる (フルテスト)
-nix run home-manager -- switch --flake '.#zenimoto@ubuntu'
+#    初回は -b backup を付けて Ubuntu 標準の ~/.bashrc / ~/.profile を
+#    .backup へ退避してから symlink を張る (詳細はトップ README 参照)
+nix run home-manager -- switch -b backup --flake '.#zenimoto@ubuntu'
 fish --version
 ```
 
