@@ -11,12 +11,20 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="${IMAGE:-dotfiles-nix-test}"
 USERNAME="${USERNAME:-zenimoto}"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+# UID/GID をタグに混ぜて、ホストごと/ユーザごとに別イメージにする。
+# 同じ UID で再実行する分にはキャッシュが効くので速い。
+IMAGE="${IMAGE:-dotfiles-nix-test:${HOST_UID}-${HOST_GID}}"
 
 if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
     echo "==> イメージ ${IMAGE} が見つからないのでビルドします"
-    docker build -f "${REPO_ROOT}/docker/Dockerfile" -t "${IMAGE}" "${REPO_ROOT}"
+    docker build \
+        --build-arg "USERNAME=${USERNAME}" \
+        --build-arg "USER_UID=${HOST_UID}" \
+        --build-arg "USER_GID=${HOST_GID}" \
+        -f "${REPO_ROOT}/docker/Dockerfile" -t "${IMAGE}" "${REPO_ROOT}"
 fi
 
 exec docker run --rm -it \
