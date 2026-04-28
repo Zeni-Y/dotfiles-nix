@@ -1,11 +1,15 @@
 # Docker を使った動作確認
 
-このディレクトリには Ubuntu コンテナ上で
-dotfiles-nix の Nix 設定が正しく評価・ビルドできるかを
-確認するための環境が含まれています。
+このディレクトリには **素の Ubuntu コンテナ** を立ち上げて、
+リポジトリのセットアップ手順 (`scripts/setup.sh` など) を
+実機さながらに試すための環境が含まれています。
 
-> **対象**: `homeConfigurations."zenimoto@ubuntu"` (Linux / Home Manager)  
+> **対象**: `homeConfigurations."zenimoto@ubuntu"` (Linux / Home Manager)
 > macOS (nix-darwin) の設定は Linux コンテナで評価できないため、対象外です。
+
+> Nix はイメージにプリインストールしません。
+> コンテナ内で `scripts/setup.sh` を走らせることで、
+> 実際のインストール手順を毎回まっさらな状態から検証できます。
 
 ---
 
@@ -24,8 +28,8 @@ cd /path/to/dotfiles-nix   # リポジトリルートに移動
 
 ```
 docker/
-├── Dockerfile   Ubuntu + Nix のテスト環境
-├── test.sh      テストスクリプト (3 ステップ)
+├── Dockerfile   素の Ubuntu 24.04 (nix なし、ユーザー作成のみ)
+├── run.sh       マウント + GITHUB_TOKEN つきで起動するラッパー
 └── README.md    このファイル
 .dockerignore    ビルドコンテキストの除外設定 (リポジトリルート)
 ```
@@ -34,152 +38,76 @@ docker/
 
 ## クイックスタート
 
-### 1. イメージをビルドする
+ホスト側のリポジトリをマウントしてコンテナに入るのが標準ワークフローです。
+`docker/run.sh` は初回呼び出し時にイメージが無ければ自動でビルドします。
+
+```bash
+./docker/run.sh
+```
+
+これは内部的に以下を実行しています:
+
+```bash
+docker run --rm -it \
+  -v "$(pwd):/home/zenimoto/dotfiles-nix" \
+  -e GITHUB_TOKEN="${GITHUB_TOKEN:-}" \
+  dotfiles-nix-test
+```
+
+| 設定 | 内容 |
+|---|---|
+| `-v $(pwd):...` | ホストのリポジトリを `~/dotfiles-nix` にマウント。編集はそのまま反映される |
+| `-e GITHUB_TOKEN` | ホストの `GITHUB_TOKEN` をコンテナにそのまま引き継ぐ (private repo / gh CLI 用) |
+| `--rm -it` | 終了時にコンテナを破棄、対話シェルとして起動 |
+
+### 別コマンドを直接実行する
+
+`run.sh` の引数はそのままコンテナに渡されます。
+
+```bash
+./docker/run.sh ./scripts/setup.sh           # セットアップを一発実行
+./docker/run.sh bash -c 'nix --version'      # 任意のコマンド
+```
+
+### イメージを手動でビルドし直す
 
 ```bash
 docker build -f docker/Dockerfile -t dotfiles-nix-test .
 ```
 
-Dockerfile が行うこと:
+Dockerfile が行うのは以下だけです:
 
-| ステップ | 内容 |
-|---|---|
-| Ubuntu 24.04 をベースにする | |
-| `zenimoto` ユーザーを作成 | `flake.nix` の `userInfo.username` と一致させる |
-| Nix をインストール (Determinate Systems installer) | `--init none` で init system 登録をスキップ |
-| dotfiles をコンテナにコピー | |
-
-#### Determinate Systems nix-installer と `--init none` とは
-
-[Determinate Systems nix-installer](https://github.com/DeterminateSystems/nix-installer) は、
-公式インストーラーよりも信頼性・再現性が高い代替インストーラーです。
-
-```bash
-curl -fsSL https://install.determinate.systems/nix | sh -s -- install linux --init none --no-confirm
-```
-
-| オプション | 意味 |
-|---|---|
-| `install linux` | Linux 向けインストールを実行 |
-| `--init none` | systemd 等 init system へのサービス登録をスキップ |
-| `--no-confirm` | 確認プロンプトを省略 (非インタラクティブ環境向け) |
-
-**なぜ `--init none` が必要か**
-
-通常の Linux 環境では `nix-daemon` を systemd サービスとして登録し、起動時に自動起動させます。
-しかし Docker コンテナには systemd が存在しないため、サービス登録を試みるとインストールが失敗します。
-`--init none` を指定することでサービス登録をスキップし、Docker コンテナ内でも正常にインストールが完了します。
-
-インストール後は `nix-daemon` が自動起動しないため、テストスクリプト (`test.sh`) が
-起動時に手動で `nix-daemon` を起動します。
-
-> **公式インストーラーとの違い**  
-> 公式インストーラー (`nixos.org/nix/install`) は `--no-daemon` でシングルユーザーモードになりますが、
-> Determinate installer は常にマルチユーザーモードでインストールします。
-> マルチユーザーモードは `/nix/store` を複数ユーザーで共有でき、セキュリティ上も優れています。
-
-#### Flakes の有効化 (`experimental-features`) とは
-
-Flakes は Nix の**再現性を高める仕組み**で、`flake.nix` と `flake.lock` を組み合わせて
-依存パッケージのバージョンを完全に固定します。このリポジトリの設定はすべて Flakes の上に成り立っています。
-
-2024 年時点で Flakes は公式には「実験的機能」扱いのため、通常は `nix.conf` に手動で追記が必要です。
-
-```
-experimental-features = nix-command flakes
-```
-
-| 機能名 | 内容 |
-|---|---|
-| `nix-command` | 新しい統合 CLI (`nix build`, `nix eval`, `nix flake` など) を有効化 |
-| `flakes` | `flake.nix` / `flake.lock` によるパッケージ管理を有効化 |
-
-**Determinate installer を使う場合**
-
-Determinate installer はインストール時に `/etc/nix/nix.conf` へ自動で追記するため、
-手動での設定は不要です。これも Determinate installer の利点の一つです。
-
-> **補足**: 通常の macOS / Linux 環境でも、同じ設定が必要です。
-> Flakes の詳細は `docs/nix-concepts.md` を参照してください。
-
-> **初回ビルド時間の目安**: 約 2〜5 分 (Nix のダウンロードを含む)
-
-### 2. テストを実行する
-
-```bash
-docker run --rm dotfiles-nix-test
-```
-
-テストは 3 ステップで構成されています:
-
-```
-[1/3] flake の入力を確認
-      └─ flake.nix が正しく読み込めるか (nixpkgs, home-manager の存在確認)
-
-[2/3] Ubuntu 設定を評価
-      └─ home.stateVersion / programs.neovim.enable / programs.fish.enable を取得
-
-[3/3] activationPackage をビルド
-      └─ home-manager switch 相当のパッケージを実際にビルド
-         (パッケージは cache.nixos.org から取得するため通常コンパイル不要)
-```
-
-> **テスト 3 の所要時間**: nixpkgs のダウンロードが発生する初回は **5〜20 分** かかることがあります。
-> キャッシュが利く 2 回目以降は大幅に短縮されます。
+- Ubuntu 24.04 をベースにする
+- `curl`, `git`, `sudo` など最低限のパッケージを入れる
+- `zenimoto` ユーザー (passwordless sudo 付き) を作成する
 
 ---
 
-## インタラクティブシェルで確認する
-
-テストを自動実行せず、コンテナの中に直接入って手動で確認したい場合:
+## 典型的な検証フロー
 
 ```bash
-docker run --rm -it dotfiles-nix-test bash
-```
+# 1. ホスト側でトークンをセット (private repo を clone する場合など)
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 
-コンテナ内で使えるコマンド例:
+# 2. コンテナに入る
+./docker/run.sh
 
-```bash
-# nix-daemon を起動してから Nix 環境を読み込む
-sudo /nix/var/nix/profiles/default/bin/nix-daemon &
-sleep 2
+# --- ここから先はコンテナ内 ---
+
+# 3. セットアップスクリプトを実行 (Nix を入れる)
+./scripts/setup.sh
+
+# 4. PATH を読み込んで Nix を使う
 . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 
-# flake の outputs を確認
-nix flake show
-
-# Ubuntu 設定を評価してみる
+# 5. flake / Home Manager を試す
+nix flake metadata
 nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
-
-# activationPackage をビルドして中身を確認
 nix build '.#homeConfigurations."zenimoto@ubuntu".activationPackage'
-ls -la result/  # ビルド結果のシンボリックリンク
 
-# home-manager switch を実際に実行する (フルテスト)
+# 6. 実際に適用してみる (フルテスト)
 nix run home-manager -- switch --flake '.#zenimoto@ubuntu'
-fish --version   # fish がインストールされたか確認
-git --version
-```
-
----
-
-## コードを変更しながら確認する
-
-設定を変更するたびにイメージを再ビルドするのは時間がかかります。
-ホスト側のファイルをマウントすることで、変更をすぐに反映できます。
-
-```bash
-# リポジトリをマウントしてインタラクティブに入る
-docker run --rm -it \
-  -v "$(pwd):/home/zenimoto/dotfiles-nix" \
-  dotfiles-nix-test bash
-
-# コンテナ内で nix-daemon を起動して Nix を読み込む
-sudo /nix/var/nix/profiles/default/bin/nix-daemon &
-sleep 2
-. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-cd ~/dotfiles-nix
-nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
+fish --version
 ```
 
 > **注意**: マウントしたファイルはコンテナ内から書き込み可能なため、
@@ -187,79 +115,33 @@ nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
 
 ---
 
-## テスト結果の見方
+## よくあるエラーと対処
 
-### 成功時
-
-```
-════════════════════════════════════════
- dotfiles-nix テスト (Ubuntu)
-════════════════════════════════════════
-
-[1/3] flake の入力を確認
-✓ nixpkgs が inputs に含まれています
-✓ home-manager が inputs に含まれています
-
-[2/3] Ubuntu 設定を評価 (home.stateVersion)
-✓ home.stateVersion = 24.11
-✓ programs.neovim.enable = true
-✓ programs.fish.enable = true
-
-[3/3] activationPackage をビルド
-    nixpkgs を取得中... (初回は数分かかります)
-✓ ビルド成功
-
-════════════════════════════════════════
- ✓ すべてのテストが通過しました
-════════════════════════════════════════
-```
-
-### よくあるエラーと対処
-
-#### `error: flake 'path:...' does not provide attribute`
+### `error: flake 'path:...' does not provide attribute`
 
 `flake.nix` のユーザー名と Dockerfile の `ARG USERNAME` が一致していない場合に発生します。
 
 ```bash
-# flake.nix の userInfo.username を確認
 grep 'username' flake.nix
-
-# Dockerfile の ARG USERNAME と一致しているか確認
 grep 'ARG USERNAME' docker/Dockerfile
 ```
 
-#### `error: reading file '/nix/store/...'` / `Permission denied`
+### `GITHUB_TOKEN` がコンテナ内で空
 
-`/nix` が正しく作成されていない可能性があります。
-`--no-daemon` インストールが正常に完了しているか確認してください。
-
-```bash
-# コンテナ内で確認
-docker run --rm -it dotfiles-nix-test bash
-ls /nix/store | head -5
-```
-
-#### `error: attribute 'fishPlugins' missing`
-
-nixpkgs のバージョンが古い可能性があります。`flake.lock` を更新してください。
+ホスト側のシェルで `export` されているか確認してください。
 
 ```bash
-# ホスト側で実行
-nix flake update
-git add flake.lock
-git commit -m "chore: update flake.lock"
-# イメージを再ビルド
-docker build -f docker/Dockerfile -t dotfiles-nix-test .
+echo "${GITHUB_TOKEN:0:4}..."   # ホスト側
+./docker/run.sh bash -c 'echo "${GITHUB_TOKEN:0:4}..."'
 ```
 
-#### ビルドが非常に遅い
+### ビルドが非常に遅い (Nix インストール後)
 
 `cache.nixos.org` への接続を確認してください。
 Docker Desktop の場合、DNS 設定が原因でキャッシュにアクセスできないことがあります。
 
 ```bash
-# キャッシュが使えているか確認 (コンテナ内)
-. ~/.nix-profile/etc/profile.d/nix.sh
+# コンテナ内で確認
 nix store ping --store https://cache.nixos.org
 ```
 
@@ -270,12 +152,7 @@ nix store ping --store https://cache.nixos.org
 実際の Ubuntu / macOS 環境がある場合は Docker 不要です。
 
 ```bash
-# flake の構文エラーを確認
 nix flake check
-
-# Ubuntu 設定だけをビルド (macOS 上でも Linux 設定をチェックできる)
 nix build '.#homeConfigurations."zenimoto@ubuntu".activationPackage'
-
-# 評価結果を確認
 nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
 ```
