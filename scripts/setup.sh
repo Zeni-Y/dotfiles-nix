@@ -2,15 +2,19 @@
 # ─────────────────────────────────────────────────────────────
 # Nix セットアップスクリプト
 #
-#   - sudo が使える環境では Determinate Systems の nix-installer で
-#     通常の (multi-user) Nix をインストールする
+#   - sudo が使える + systemd が動いている環境では Determinate Systems の
+#     nix-installer で通常の (multi-user) Nix をインストールする
+#   - sudo が使えるが systemd が無い環境 (Docker コンテナなど) では
+#     `nix-installer install linux --init none` で daemon の自動起動を
+#     諦めた状態でインストールする
 #   - sudo が使えない環境では nix-portable をダウンロードして
 #     ~/.local/bin/nix-portable に配置する
 #
 # 使い方:
-#   ./scripts/setup.sh              # 自動判定 (sudo があれば普通の Nix)
+#   ./scripts/setup.sh              # 自動判定
 #   ./scripts/setup.sh --portable   # 強制的に nix-portable
-#   ./scripts/setup.sh --system     # 強制的に通常の Nix (sudo 必須)
+#   ./scripts/setup.sh --system     # 強制的に通常の Nix
+#                                   #   (systemd が無ければ --init none で続行)
 # ─────────────────────────────────────────────────────────────
 set -eu
 
@@ -21,7 +25,7 @@ for arg in "$@"; do
         --system)   MODE="system" ;;
         --auto)     MODE="auto" ;;
         -h|--help)
-            sed -n '2,15p' "$0"
+            sed -n '2,18p' "$0"
             exit 0
             ;;
         *)
@@ -53,22 +57,69 @@ have_sudo() {
     return 1
 }
 
+# ─── systemd が PID 1 で動いているか判定 ─────────────────────
+# nix-installer は init system に登録するために systemd を要求する。
+# Docker コンテナや WSL1 などでは systemd が無いので、その場合は
+# `linux --init none` プランで入れる必要がある。
+#
+# 検出方法は systemd 自身が推奨している
+# /run/systemd/system ディレクトリの存在チェック。
+# 参考: https://www.freedesktop.org/software/systemd/man/sd_booted.html
+have_systemd() {
+    [ -d /run/systemd/system ]
+}
+
 # ─── 通常の Nix をインストール (Determinate Systems installer) ─
+# 引数:
+#   $1 = "with-systemd" or "no-systemd"
 install_system_nix() {
+    init_mode="${1:-with-systemd}"
+
     if command -v nix >/dev/null 2>&1; then
         ok "nix は既にインストール済み: $(command -v nix)"
         return 0
     fi
-    log "Determinate Systems nix-installer で Nix をインストールします"
-    curl --proto '=https' --tlsv1.2 -sSf -L \
-        https://install.determinate.systems/nix \
-        | sh -s -- install --no-confirm
+
+    if [ "$init_mode" = "no-systemd" ]; then
+        log "systemd が見つかりません → \`linux --init none\` でインストールします"
+        log "Determinate Systems nix-installer で Nix をインストールします"
+        curl --proto '=https' --tlsv1.2 -sSf -L \
+            https://install.determinate.systems/nix \
+            | sh -s -- install linux --init none --no-confirm
+    else
+        log "Determinate Systems nix-installer で Nix をインストールします"
+        curl --proto '=https' --tlsv1.2 -sSf -L \
+            https://install.determinate.systems/nix \
+            | sh -s -- install --no-confirm
+    fi
     ok "Nix のインストールが完了しました"
+
     cat <<'EOM'
 
 新しいシェルを開くか、以下を実行して PATH を読み込んでください:
 
   . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+EOM
+
+    if [ "$init_mode" = "no-systemd" ]; then
+        cat <<'EOM'
+
+systemd が無い環境では nix-daemon が自動起動しないので、
+シェルを開くたびに手動で起動する必要があります:
+
+  sudo /nix/var/nix/profiles/default/bin/nix-daemon &
+
+毎回手で起動したくない場合は ~/.bashrc などに以下を追記しておくと
+シェル起動時にバックグラウンドで立ち上がります
+(既に動いていれば pgrep でスキップ):
+
+  if ! pgrep -x nix-daemon >/dev/null 2>&1; then
+      sudo /nix/var/nix/profiles/default/bin/nix-daemon >/dev/null 2>&1 &
+  fi
+EOM
+    fi
+
+    cat <<'EOM'
 
 その後、Home Manager を適用できます:
 
@@ -148,15 +199,25 @@ case "$MODE" in
             err "--portable を指定するか、引数なしで実行してください"
             exit 1
         fi
-        install_system_nix
+        if have_systemd; then
+            install_system_nix with-systemd
+        else
+            install_system_nix no-systemd
+        fi
         ;;
     portable)
         install_nix_portable
         ;;
     auto)
         if have_sudo; then
-            log "sudo が使える環境を検出しました → 通常の Nix をインストールします"
-            install_system_nix
+            if have_systemd; then
+                log "sudo + systemd を検出しました → 通常の Nix をインストールします"
+                install_system_nix with-systemd
+            else
+                log "sudo は使えるが systemd が無い環境を検出しました (コンテナなど)"
+                log "→ \`linux --init none\` プランで Nix をインストールします"
+                install_system_nix no-systemd
+            fi
         else
             log "sudo が使えない環境を検出しました → nix-portable を使用します"
             install_nix_portable
