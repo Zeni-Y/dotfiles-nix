@@ -199,17 +199,48 @@ $EDITOR flake.nix
 
 ```bash
 # 初回は home-manager コマンド自体を nix run で持ってくる
-nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
+# `-b backup` は既存の dotfiles を退避するためのフラグ (下記参照)。初回 switch では必須。
+nix run home-manager/master -- switch -b backup --flake .#zenimoto@ubuntu
 
 # 以降は home-manager コマンドが PATH に入っているのでそれを使う
 home-manager switch --flake .#zenimoto@ubuntu
 ```
 
+#### `-b backup` の挙動
+
+Home Manager は `~/.bashrc` や `~/.profile` のような **既に存在するファイルを
+黙って上書きしない**。素の Ubuntu には Ubuntu 標準の `~/.bashrc` などが既に
+置かれているため、無印で `switch` を打つと
+
+```
+Existing file '/home/<you>/.bashrc' would be clobbered
+```
+
+で停止する。`-b backup` を付けると Home Manager は次の動作になる:
+
+1. Home Manager が管理したいパス (`~/.bashrc`, `~/.profile`, `~/.config/...` など) に
+   既存の実体ファイルがあるかチェックする
+2. 衝突しているファイルを `<元のパス>.backup` にリネームして退避する
+3. 退避した跡地に Nix store を指す symlink を張る
+
+例えば `~/.bashrc` が既にあれば `~/.bashrc.backup` に移動され、その後で
+`~/.bashrc -> /nix/store/...-home-manager-files/.bashrc` の symlink が作られる。
+
+**注意点**:
+- 拡張子 (`backup`) は何でもよく、`-b old` でも `-b 2025-04-28` でも動く。
+- **同じ拡張子のバックアップが既にある場合、再度 `switch` するとまた同じエラーで
+  止まる**。再実行するときは別の拡張子 (`-b backup2`) を渡すか、`rm
+  ~/.bashrc.backup ~/.profile.backup` で退避済みファイルを消してから流す。
+- 2 回目以降の `switch` は Home Manager 自身が貼った symlink を相手にするので
+  通常 `-b backup` 不要。symlink は「Home Manager 管理下」と判定されるので
+  普通に上書きされる。
+- 退避された `.backup` の中身が要らないと確認できたら、後から消して構わない。
+
 `sudo` が使えない環境 (= nix-portable をインストールした場合) は
 すべての `nix` 呼び出しを `nix-portable nix` に置き換える:
 
 ```bash
-nix-portable nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
+nix-portable nix run home-manager/master -- switch -b backup --flake .#zenimoto@ubuntu
 ```
 
 ### macOS (nix-darwin)
@@ -268,12 +299,40 @@ sudo darwin-rebuild --switch-generation <n>
 
 ## 既知のハマりどころ
 
+- **初回 `home-manager switch` では `-b backup` を付ける** (Linux の standalone モード)。
+  既存の `~/.bashrc` / `~/.profile` などがあると Home Manager は黙って上書きせず
+  `Existing file '...' would be clobbered` で停止する。`-b backup` を付ければ
+  `.backup` 拡張子で退避してからリンクを張り直してくれる。
+  ```bash
+  nix run home-manager -- switch -b backup --flake '.#zenimoto@ubuntu'
+  ```
+  2 度目以降の switch で同じバックアップが既にあるとまたぶつかるので、
+  別の拡張子 (`-b backup2`) にするか退避済みファイルを消す。
+- **`home-manager news` / `generations` などのサブコマンドも `--flake` が必要**。
+  flake 構成では `~/.config/home-manager/home.nix` が無いので、`--flake` 無しで
+  叩くと `No configuration file found` で落ちる。
+  ```bash
+  home-manager news --flake '.#zenimoto@ubuntu'
+  # 楽にしたいなら alias:
+  alias hm="home-manager --flake ~/dotfiles-nix#zenimoto@ubuntu"
+  # あるいは symlink を張って引数なしで呼べるようにする:
+  ln -sfn ~/dotfiles-nix ~/.config/home-manager
+  ```
+- **systemd 無しの環境 (Docker コンテナなど) では `nix-daemon` を手動起動する**。
+  `setup.sh` でインストール後、`opening lock file ".../big-lock": Permission denied`
+  が出るのは daemon が落ちているサイン。`~/.bashrc` に
+  `pgrep -x nix-daemon || sudo /nix/var/nix/profiles/default/bin/nix-daemon &` を
+  仕込んでおくと毎回手で叩かなくて済む。
 - **macOS の `system.defaults` の一部はログアウトしないと反映されない** (Dock など)。
 - **Homebrew の `cleanup = "zap"`** は、ここで宣言していないものを問答無用でアンインストールする。
   既存環境を取り込む段階では `"check"` または `"uninstall"` の方が安全。
 - **`pkgs.fishPlugins` にないプラグイン**を使いたい場合は `fetchFromGitHub` で src を固定する
   (詳細は `home/shell/fish.nix` のコメント参照)。
 - **fish_plugins (fisher)** をリポジトリに残しても Nix 管理下では機能しないので消して良い。
+
+Docker コンテナ固有のトラブル (UID/GID 不一致による
+`repository ... is not owned by current user`、`USER: unbound variable` など) は
+[docker/README.md の「よくあるエラーと対処」](docker/README.md#よくあるエラーと対処) を参照。
 
 ---
 

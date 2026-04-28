@@ -69,6 +69,46 @@ have_systemd() {
     [ -d /run/systemd/system ]
 }
 
+# ─── ~/.bashrc に Nix 関連の起動スニペットを追記 ──────────────
+# 同じ目印 (grep キー) を含む行が既にあれば二重に書かない。
+#
+# 引数:
+#   $1 = "with-daemon-autostart" or "no-daemon-autostart"
+#        前者なら nix-daemon の pgrep 自動起動ブロックも追記する
+write_bashrc_nix_snippets() {
+    autostart="${1:-no-daemon-autostart}"
+    rcfile="$HOME/.bashrc"
+    : >>"$rcfile"   # ファイルが無ければ作る (touch 相当)
+
+    # nix-daemon.sh の source 行
+    # Determinate installer はシステム側 rc (/etc/bash.bashrc 等) を書き換えるが、
+    # それが拾われない環境 (sandbox / 一部のコンテナ) でも確実に PATH と
+    # NIX_* 環境変数が立つよう、ユーザの ~/.bashrc にも明示的に入れておく。
+    if ! grep -qsF 'dotfiles-nix:nix-daemon-source' "$rcfile"; then
+        cat >>"$rcfile" <<'EOM'
+
+# dotfiles-nix:nix-daemon-source — Nix 環境を読み込む
+if [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+fi
+EOM
+        ok "${rcfile} に nix-daemon.sh の source 行を追記しました"
+    fi
+
+    # nix-daemon の自動起動ブロック (systemd が無い環境のみ)
+    if [ "$autostart" = "with-daemon-autostart" ] && \
+       ! grep -qsF 'dotfiles-nix:nix-daemon-autostart' "$rcfile"; then
+        cat >>"$rcfile" <<'EOM'
+
+# dotfiles-nix:nix-daemon-autostart — systemd の無い環境用に nix-daemon を起動
+if ! pgrep -x nix-daemon >/dev/null 2>&1; then
+    sudo /nix/var/nix/profiles/default/bin/nix-daemon >/dev/null 2>&1 &
+fi
+EOM
+        ok "${rcfile} に nix-daemon の自動起動スニペットを追記しました"
+    fi
+}
+
 # ─── 通常の Nix をインストール (Determinate Systems installer) ─
 # 引数:
 #   $1 = "with-systemd" or "no-systemd"
@@ -94,9 +134,22 @@ install_system_nix() {
     fi
     ok "Nix のインストールが完了しました"
 
+    # ~/.bashrc に source 行を (no-systemd ならそれに加えて daemon 自動起動も) 追記
+    if [ "$init_mode" = "no-systemd" ]; then
+        write_bashrc_nix_snippets with-daemon-autostart
+    else
+        write_bashrc_nix_snippets no-daemon-autostart
+    fi
+
     cat <<'EOM'
 
-新しいシェルを開くか、以下を実行して PATH を読み込んでください:
+~/.bashrc に Nix 環境の読み込みを追記したので、
+新しいシェルを開けばそのまま nix コマンドが使えます:
+
+  exec bash         # 現在のシェルを置き換える
+  # あるいは別ターミナルを開く
+
+今のシェルにすぐ反映したい場合は手動で source してください:
 
   . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 EOM
@@ -104,26 +157,21 @@ EOM
     if [ "$init_mode" = "no-systemd" ]; then
         cat <<'EOM'
 
-systemd が無い環境では nix-daemon が自動起動しないので、
-シェルを開くたびに手動で起動する必要があります:
+systemd の無い環境では nix-daemon が自動起動しないので、
+~/.bashrc に「未起動なら sudo で起動する」スニペットも追記済みです。
+新しいシェルを開けば自動的にバックグラウンドで起動します。
 
-  sudo /nix/var/nix/profiles/default/bin/nix-daemon &
+今のシェルですぐ daemon を起動したい場合:
 
-毎回手で起動したくない場合は ~/.bashrc などに以下を追記しておくと
-シェル起動時にバックグラウンドで立ち上がります
-(既に動いていれば pgrep でスキップ):
-
-  if ! pgrep -x nix-daemon >/dev/null 2>&1; then
-      sudo /nix/var/nix/profiles/default/bin/nix-daemon >/dev/null 2>&1 &
-  fi
+  sudo /nix/var/nix/profiles/default/bin/nix-daemon >/dev/null 2>&1 &
 EOM
     fi
 
     cat <<'EOM'
 
-その後、Home Manager を適用できます:
+その後、Home Manager を適用できます (初回は必ず -b backup を付ける):
 
-  nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
+  nix run home-manager/master -- switch -b backup --flake .#zenimoto@ubuntu
 EOM
 }
 
