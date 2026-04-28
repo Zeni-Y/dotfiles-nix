@@ -133,6 +133,32 @@ nix-portable nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
 alias nix='nix-portable nix'
 ```
 
+##### experimental-features (flakes / nix-command) について
+
+nix-portable は **`flakes` と `nix-command` をデフォルトで有効化した状態**で
+配布されているため、`/etc/nix/nix.conf` を書いたり追加フラグを渡したりする
+必要はない (公式 README: "Features `flakes` and `nix-command` are enabled
+out of the box.")。インストール直後から `nix-portable nix flake ...` が動く。
+
+`ca-derivations` など追加の experimental feature を有効にしたい場合は、
+通常の Nix と同じ方法で設定する。デフォルト値を上書きしないよう
+`extra-experimental-features` を使うのが安全:
+
+```bash
+mkdir -p ~/.config/nix
+echo 'extra-experimental-features = ca-derivations' >> ~/.config/nix/nix.conf
+
+# あるいは環境変数で
+export NIX_CONFIG="extra-experimental-features = ca-derivations"
+
+# あるいは 1 回限りのフラグ
+nix-portable nix --extra-experimental-features ca-derivations build ...
+```
+
+なお nix-portable 固有の挙動 (実行ランタイム選択や保存場所変更など) は
+`NP_RUNTIME` / `NP_LOCATION` / `NP_DEBUG` といった `NP_*` 系の環境変数で
+制御する。これらは Nix の experimental-features とは別物。
+
 ### macOS のみ: Homebrew
 
 nix-darwin の Homebrew モジュールは「Homebrew 本体が入っている前提」で動くため、
