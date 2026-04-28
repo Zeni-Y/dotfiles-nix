@@ -85,6 +85,14 @@ Dockerfile が行うのは以下だけです:
 
 ## 典型的な検証フロー
 
+このコンテナの `zenimoto` ユーザーには passwordless sudo が付いているため、
+`scripts/setup.sh` を引数なしで呼ぶと auto モードで **通常の Nix** が入ります。
+実機の sudo なし環境 (CI / 共有サーバー / SSH 先など) でも動かすことを
+想定しているので、まず **nix-portable で検証** してから、続けて
+通常の Nix 経路を確認するのが推奨ワークフローです。
+
+### 1. nix-portable で検証 (sudo を使わない経路)
+
 ```bash
 # 1. ホスト側でトークンをセット (private repo を clone する場合など)
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
@@ -94,8 +102,43 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 
 # --- ここから先はコンテナ内 ---
 
-# 3. セットアップスクリプトを実行 (Nix を入れる)
+# 3. nix-portable をダウンロード (~/.local/bin/nix-portable)
+./scripts/setup.sh --portable
+
+# 4. setup.sh が ~/.bashrc に追記した PATH を反映する
+exec bash               # 新しい対話シェルに置き換える
+# あるいは現在のシェルに読み込みたいなら:
+#   . ~/.bashrc
+
+which nix-portable      # → /home/zenimoto/.local/bin/nix-portable
+
+# 5. flake / Home Manager を試す
+nix-portable nix flake metadata
+nix-portable nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
+nix-portable nix build '.#homeConfigurations."zenimoto@ubuntu".activationPackage'
+
+# 6. 実際に適用してみる (フルテスト)
+nix-portable nix run home-manager/master -- switch --flake '.#zenimoto@ubuntu'
+fish --version
+```
+
+> 普段使いするなら `alias nix='nix-portable nix'` を張っておくと楽です。
+
+### 2. 通常の Nix で検証 (sudo あり)
+
+```bash
+# 1. ホスト側でトークンをセット (private repo を clone する場合など)
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+
+# 2. コンテナに入る (portable 経路と別の状態で試したい場合は
+#    一度コンテナを抜けて再起動するとクリーンな状態になる)
+./docker/run.sh
+
+# --- ここから先はコンテナ内 ---
+
+# 3. セットアップスクリプトを実行 (Determinate Nix Installer)
 ./scripts/setup.sh
+# あるいは明示的に: ./scripts/setup.sh --system
 
 # 4. PATH を読み込んで Nix を使う
 . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
