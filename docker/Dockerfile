@@ -28,6 +28,12 @@ ARG USERNAME=zenimoto
 RUN useradd -m -s /bin/bash "${USERNAME}" && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
+# Docker の `USER` 命令は実行 UID を切り替えるだけで環境変数 $USER までは
+# 設定しない。非ログインの bash では $USER が空のままになり、
+# Home Manager が `set -u` で unbound variable エラーを出すので明示する。
+ENV USER=${USERNAME} \
+    HOME=/home/${USERNAME}
+
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}/dotfiles-nix
 
