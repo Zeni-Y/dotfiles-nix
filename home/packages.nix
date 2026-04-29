@@ -46,6 +46,9 @@
     bash-language-server
     pyright
 
+    # Python 環境管理 (Python 本体は `uv python install` で導入)
+    uv
+
     # その他便利系
     yazi      # TUI ファイラー
     tldr      # 簡潔な man の代替
