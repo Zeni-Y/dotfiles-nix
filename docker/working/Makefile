@@ -17,6 +17,8 @@
 IMAGE_NAME := $(USER)_working_image
 CONTAINER_NAME := $(USER)_working_container
 SSH_PORT := 2222
+# コンテナ起動時に https://github.com/$(GITHUB_USER).keys から authorized_keys を取得する
+GITHUB_USER ?= Zeni-Y
 
 # NVIDIA GPU が利用可能なときだけ --gpus all を付ける（Mac では自動で外れる）
 GPU_FLAG := $(shell nvidia-smi >/dev/null 2>&1 && echo --gpus all)
@@ -36,6 +38,7 @@ build:
 		--build-arg USERNAME="$(USER)" \
 		--build-arg USER_UID="$$(id -u)" \
 		--build-arg USER_GID="$$(id -g)" \
+		--build-arg GITHUB_USER="$(GITHUB_USER)" \
 		./ -t "$(IMAGE_NAME)"
 
 run:
@@ -48,9 +51,11 @@ run:
 		--shm-size 16G \
 		-v "$(HOME):/home/$(USER)/host" \
 		-v "$(HOME)/.cache:/home/$(USER)/.cache" \
+		-v "$(HOME)/ghq:/home/$(USER)/ghq" \
 		-w "/home/$(USER)" \
 		-p "$(SSH_PORT):22" \
 		-e GITHUB_TOKEN \
+		-e GITHUB_USER="$(GITHUB_USER)" \
 		$(RUN_EXTRA_ARGS) \
 		"$(IMAGE_NAME)"
 

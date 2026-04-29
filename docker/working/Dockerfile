@@ -3,9 +3,14 @@ FROM ubuntu:24.04
 ARG USERNAME=user
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
+# 起動時に https://github.com/${GITHUB_USER}.keys から authorized_keys を取得する
+ARG GITHUB_USER=Zeni-Y
 
 ENV TZ=Asia/Tokyo
 ENV DEBIAN_FRONTEND=noninteractive
+# entrypoint.sh から参照するため、ビルド時の値をランタイム環境変数にも残す
+ENV USERNAME=${USERNAME}
+ENV GITHUB_USER=${GITHUB_USER}
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
@@ -33,9 +38,13 @@ RUN groupadd --gid $USER_GID $USERNAME && \
 
 WORKDIR /home/$USERNAME
 
+# 起動時に GitHub から authorized_keys を取得して sshd を立ち上げる
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # sshd を PID 1 として foreground 実行（root 権限が必須）
 # SSH ログイン後は鍵に対応するユーザーに切り替わる
 # `docker exec` で入る場合は `-u $USERNAME` を指定する
 USER root
 
-ENTRYPOINT ["/usr/sbin/sshd", "-D", "-e"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
