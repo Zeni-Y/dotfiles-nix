@@ -48,6 +48,7 @@ run:
 		--shm-size 16G \
 		-v "$(HOME):/home/$(USER)/host" \
 		-v "$(HOME)/.cache:/home/$(USER)/.cache" \
+		-v "$(HOME)/ghq:/home/$(USER)/ghq" \
 		-w "/home/$(USER)" \
 		-p "$(SSH_PORT):22" \
 		-e GITHUB_TOKEN \
