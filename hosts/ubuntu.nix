@@ -11,6 +11,7 @@ let
   pkgs = import inputs.nixpkgs {
     inherit system;
     config.allowUnfree = true;
+    overlays = [ inputs.nix-claude-code.overlays.default ];
   };
 in
 inputs.home-manager.lib.homeManagerConfiguration {

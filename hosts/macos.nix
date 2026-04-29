@@ -18,6 +18,7 @@ inputs.nix-darwin.lib.darwinSystem {
     inputs.home-manager.darwinModules.home-manager
     {
       nixpkgs.config.allowUnfree = true;
+      nixpkgs.overlays = [ inputs.nix-claude-code.overlays.default ];
 
       # nix-darwin now requires primaryUser to be set explicitly for
       # any options that apply to a specific user (Homebrew, system.defaults, etc.)
