@@ -33,15 +33,42 @@ make build
 make run
 ```
 
-起動時の流れ:
+`-d` でバックグラウンド起動し、PID 1 として `sshd -D` が常駐するため、ホスト側から **いつでも SSH 接続できる状態が維持される**。`--restart unless-stopped` を付けているので Docker / ホスト再起動後も自動復帰する。
 
-1. `ENTRYPOINT` が SSH サーバーを起動（`sudo service ssh start`）
-2. bash シェルが起動
+GPU は `nvidia-smi` がホストにある場合のみ `--gpus all` が自動付与される（Mac では自動で外れる）。
 
-dotfiles をセットアップする場合はコンテナ内で手動実行:
+### コンテナに入る
+
+bash で直接入る（`exit` してもコンテナは停止しない）:
+
+```bash
+make shell
+```
+
+### dotfiles と SSH 鍵のセットアップ
+
+初回のみ `make shell` で入って chezmoi を適用する。chezmoi で `~/.ssh/authorized_keys` が展開されるので、これ以降ホストから SSH 接続できる:
 
 ```bash
 chezmoi init --apply Zeni-Y
+```
+
+### SSH 接続
+
+agent forwarding 付きでログイン:
+
+```bash
+make ssh
+# または
+ssh -A -p 2222 $USER@localhost
+```
+
+### ログ確認 / 再起動
+
+```bash
+make logs       # sshd のログを追跡
+make restart    # 再起動（コンテナ設定は維持）
+make stop       # 停止
 ```
 
 ### GPU 動作確認
@@ -60,6 +87,6 @@ make gpu-test
 | chezmoi         | コンテナにインストール済み             | なし（手動インストール）           |
 | entrypoint.sh   | chezmoi 自動適用 + SSH 起動            | 廃止（ENTRYPOINT で SSH のみ起動） |
 | ユーザー認証    | パスワード (`chpasswd`)                | sudo NOPASSWD（パスワードなし）    |
-| 起動モード      | `-itd` (デタッチ) + SSH 接続           | `-it` (対話モード)                 |
+| 起動モード      | `-itd` (デタッチ) + SSH 接続           | `-d` (バックグラウンド常駐) + SSH  |
 | `.ssh` マウント | ホストからマウント                     | 不要（SSH agent forwarding）       |
 | ホームマウント  | `$HOME` 全体                           | `$HOME` → `/home/$USER/host`       |
