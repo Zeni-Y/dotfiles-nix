@@ -17,7 +17,7 @@ CONTAINER_NAME := $(USER)_working_container
 SSH_PORT := 2222
 
 # NVIDIA GPU が利用可能なときだけ --gpus all を付ける（Mac では自動で外れる）
-GPU_FLAG := $(shell command -v nvidia-smi >/dev/null 2>&1 && echo --gpus all)
+GPU_FLAG := $(shell nvidia-smi >/dev/null 2>&1 && echo --gpus all)
 
 .PHONY: build run shell ssh logs gpu-test clean restart stop rm
 
