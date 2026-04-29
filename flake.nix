@@ -17,6 +17,13 @@
       url = "github:nix-darwin/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Claude Code の公式プリビルドバイナリを提供するオーバーレイ。
+    # nixpkgs に `claude-code` / `claude-code-minimal` を追加する。
+    nix-claude-code = {
+      url = "github:ryoppippi/nix-claude-code";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ─────────────────────────────────────────────────────────────
@@ -24,7 +31,7 @@
   #   - homeConfigurations.* : Ubuntu などで standalone Home Manager を使う場合
   #   - darwinConfigurations.* : macOS で nix-darwin + Home Manager を使う場合
   # ─────────────────────────────────────────────────────────────
-  outputs = inputs @ { self, nixpkgs, home-manager, nix-darwin, ... }:
+  outputs = inputs @ { self, nixpkgs, home-manager, nix-darwin, nix-claude-code, ... }:
     let
       # 個人情報。新しいマシンを足すときはここから上書きするだけで済む。
       userInfo = {
