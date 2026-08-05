@@ -4,6 +4,8 @@
 #   make build       - イメージをビルド
 #   make run         - コンテナをバックグラウンド起動（SSH ポート: 2222）
 #   make run SSH_PORT=3333  - SSH ポートを指定して起動
+#   make build USERNAME=zenimoto
+#                    - コンテナ内のユーザー名を指定（既定はホストの $USER）
 #   make run -- -p 8000:8000 --env FOO=bar
 #                    - `--` 以降を docker run の追加オプションとして渡す
 #   make shell       - 起動中コンテナに bash で入る（exit してもコンテナは停止しない）
@@ -17,6 +19,10 @@
 IMAGE_NAME := $(USER)_working_image
 CONTAINER_NAME := $(USER)_working_container
 SSH_PORT := 2222
+# コンテナ内のユーザー名。Home Manager の homeConfigurations は
+# /home/<username> を前提にするので、flake.nix の userInfo.username と
+# 揃える必要がある。既定ではホストの $USER をそのまま引き継ぐ。
+USERNAME ?= $(USER)
 # コンテナ起動時に https://github.com/$(GITHUB_USER).keys から authorized_keys を取得する
 GITHUB_USER ?= Zeni-Y
 
@@ -35,7 +41,7 @@ endif
 
 build:
 	docker build \
-		--build-arg USERNAME="$(USER)" \
+		--build-arg USERNAME="$(USERNAME)" \
 		--build-arg USER_UID="$$(id -u)" \
 		--build-arg USER_GID="$$(id -g)" \
 		--build-arg GITHUB_USER="$(GITHUB_USER)" \
@@ -50,10 +56,10 @@ run:
 		--network zenimoto \
 		--ipc=host \
 		--shm-size 16G \
-		-v "$(HOME):/home/$(USER)/host" \
-		-v "$(HOME)/.cache:/home/$(USER)/.cache" \
-		-v "$(HOME)/ghq:/home/$(USER)/ghq" \
-		-w "/home/$(USER)" \
+		-v "$(HOME):/home/$(USERNAME)/host" \
+		-v "$(HOME)/.cache:/home/$(USERNAME)/.cache" \
+		-v "$(HOME)/ghq:/home/$(USERNAME)/ghq" \
+		-w "/home/$(USERNAME)" \
 		-p "$(SSH_PORT):22" \
 		-e GITHUB_TOKEN \
 		-e GITHUB_USER="$(GITHUB_USER)" \
@@ -61,10 +67,10 @@ run:
 		"$(IMAGE_NAME)"
 
 shell:
-	docker exec -it -u "$(USER)" -w "/home/$(USER)" "$(CONTAINER_NAME)" bash --login
+	docker exec -it -u "$(USERNAME)" -w "/home/$(USERNAME)" "$(CONTAINER_NAME)" bash --login
 
 ssh:
-	ssh -A -p "$(SSH_PORT)" "$(USER)@localhost"
+	ssh -A -p "$(SSH_PORT)" "$(USERNAME)@localhost"
 
 logs:
 	docker logs -f "$(CONTAINER_NAME)"
