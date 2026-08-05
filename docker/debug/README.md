@@ -51,7 +51,7 @@ docker/debug/
 これは内部的に以下を実行しています:
 
 ```bash
-docker run --rm -it \
+docker run --rm -it --init \
   -v "$(pwd):/home/zenimoto/dotfiles-nix" \
   -e GITHUB_TOKEN="${GITHUB_TOKEN:-}" \
   dotfiles-nix-test
@@ -62,6 +62,7 @@ docker run --rm -it \
 | `-v $(pwd):...` | ホストのリポジトリを `~/dotfiles-nix` にマウント。編集はそのまま反映される |
 | `-e GITHUB_TOKEN` | ホストの `GITHUB_TOKEN` をコンテナにそのまま引き継ぐ (private repo / gh CLI 用) |
 | `--rm -it` | 終了時にコンテナを破棄、対話シェルとして起動 |
+| `--init` | tini を PID 1 に置き、ゾンビプロセスの刈り取りとシグナル転送を任せる。`nix-daemon` をバックグラウンド起動する構成では特に効く |
 
 ### 別コマンドを直接実行する
 
