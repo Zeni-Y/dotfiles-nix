@@ -39,7 +39,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト) |
 | Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
 | ターミナル | tmux (prefix `C-t`, resurrect/continuum, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
-| エディタ | Neovim (defaultEditor)・Zed (`~/.config/zed/{settings,keymap}.json` を生成) |
+| エディタ | Neovim (defaultEditor) |
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi / ghq |
 
 ---
