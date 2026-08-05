@@ -5,11 +5,14 @@
 実機さながらに試すための環境が含まれています。
 
 > **対象**: `homeConfigurations."zenimoto@ubuntu"` (Linux / Home Manager)
-> macOS (nix-darwin) の設定は Linux コンテナで評価できないため、対象外です。
 
 > Nix はイメージにプリインストールしません。
 > コンテナ内で `scripts/setup.sh` を走らせることで、
 > 実際のインストール手順を毎回まっさらな状態から検証できます。
+
+> コンテナ内のユーザには passwordless sudo を付けています。
+> このリポジトリは **sudo が使える前提** の設計なので、
+> sudo 無し (nix-portable など) の経路は検証対象に含めません。
 
 ---
 
@@ -27,7 +30,7 @@ cd /path/to/dotfiles-nix   # リポジトリルートに移動
 ## ファイル構成
 
 ```
-docker/
+docker/debug/
 ├── Dockerfile   素の Ubuntu 24.04 (nix なし、ユーザー作成のみ)
 ├── run.sh       マウント + GITHUB_TOKEN つきで起動するラッパー
 └── README.md    このファイル
@@ -39,10 +42,10 @@ docker/
 ## クイックスタート
 
 ホスト側のリポジトリをマウントしてコンテナに入るのが標準ワークフローです。
-`docker/run.sh` は初回呼び出し時にイメージが無ければ自動でビルドします。
+`docker/debug/run.sh` は初回呼び出し時にイメージが無ければ自動でビルドします。
 
 ```bash
-./docker/run.sh
+./docker/debug/run.sh
 ```
 
 これは内部的に以下を実行しています:
@@ -65,14 +68,14 @@ docker run --rm -it \
 `run.sh` の引数はそのままコンテナに渡されます。
 
 ```bash
-./docker/run.sh ./scripts/setup.sh           # セットアップを一発実行
-./docker/run.sh bash -c 'nix --version'      # 任意のコマンド
+./docker/debug/run.sh ./scripts/setup.sh           # セットアップを一発実行
+./docker/debug/run.sh bash -c 'nix --version'      # 任意のコマンド
 ```
 
 ### イメージを手動でビルドし直す
 
 ```bash
-docker build -f docker/Dockerfile -t dotfiles-nix-test .
+docker build -f docker/debug/Dockerfile -t dotfiles-nix-test .
 ```
 
 Dockerfile が行うのは以下だけです:
@@ -86,66 +89,28 @@ Dockerfile が行うのは以下だけです:
 ## 典型的な検証フロー
 
 このコンテナの `zenimoto` ユーザーには passwordless sudo が付いているため、
-`scripts/setup.sh` を引数なしで呼ぶと auto モードで **通常の Nix** が入ります。
-実機の sudo なし環境 (CI / 共有サーバー / SSH 先など) でも動かすことを
-想定しているので、まず **nix-portable で検証** してから、続けて
-通常の Nix 経路を確認するのが推奨ワークフローです。
-
-### 1. nix-portable で検証 (sudo を使わない経路)
+`scripts/setup.sh` を引数なしで呼べば **通常の (multi-user) Nix** が入ります。
+コンテナには systemd が無いので、`setup.sh` は自動的に
+`linux --init none` プランに切り替わり、`~/.bashrc` に `nix-daemon` の
+起動スニペットを追記します。
 
 ```bash
 # 1. ホスト側でトークンをセット (private repo を clone する場合など)
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 
-# 2. コンテナに入る
-./docker/run.sh
-
-# --- ここから先はコンテナ内 ---
-
-# 3. nix-portable をダウンロード (~/.local/bin/nix-portable)
-./scripts/setup.sh --portable
-
-# 4. setup.sh が ~/.bashrc に追記した PATH を反映する
-exec bash               # 新しい対話シェルに置き換える
-# あるいは現在のシェルに読み込みたいなら:
-#   . ~/.bashrc
-
-which nix-portable      # → /home/zenimoto/.local/bin/nix-portable
-
-# 5. flake / Home Manager を試す
-nix-portable nix flake metadata
-nix-portable nix eval '.#homeConfigurations."zenimoto@ubuntu".config.home.stateVersion' --raw
-nix-portable nix build '.#homeConfigurations."zenimoto@ubuntu".activationPackage'
-
-# 6. 実際に適用してみる (フルテスト)
-#    初回は -b backup を付けて Ubuntu 標準の ~/.bashrc / ~/.profile を
-#    .backup へ退避してから symlink を張る (詳細はトップ README 参照)
-nix-portable nix run home-manager/master -- switch -b backup --flake '.#zenimoto@ubuntu'
-fish --version
-```
-
-> 普段使いするなら `alias nix='nix-portable nix'` を張っておくと楽です。
-
-### 2. 通常の Nix で検証 (sudo あり)
-
-```bash
-# 1. ホスト側でトークンをセット (private repo を clone する場合など)
-export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
-
-# 2. コンテナに入る (portable 経路と別の状態で試したい場合は
-#    一度コンテナを抜けて再起動するとクリーンな状態になる)
-./docker/run.sh
+# 2. コンテナに入る (クリーンな状態から試したいときは
+#    一度コンテナを抜けて起動し直す)
+./docker/debug/run.sh
 
 # --- ここから先はコンテナ内 ---
 
 # 3. セットアップスクリプトを実行 (Determinate Nix Installer)
 #    setup.sh が ~/.bashrc に nix-daemon.sh の source 行と
-#    (systemd 無し環境では) nix-daemon の自動起動スニペットも追記する
+#    nix-daemon の自動起動スニペットを追記する
 ./scripts/setup.sh
-# あるいは明示的に: ./scripts/setup.sh --system
 
 # 4. 新しいシェルに切り替えて ~/.bashrc を読み込む
-#    これで PATH が通り、systemd 無し環境では nix-daemon も自動起動する
+#    これで PATH が通り、nix-daemon も自動起動する
 exec bash
 
 # 5. flake / Home Manager を試す
@@ -194,12 +159,12 @@ Docker の `USER` 命令は実行 UID を切り替えるだけで環境変数 `$
 `$USER` が空のまま入っており、Home Manager の起動スクリプトが `set -u`
 で落ちる。
 
-`docker/Dockerfile` 側で `ENV USER=${USERNAME}` を明示しているので
+`docker/debug/Dockerfile` 側で `ENV USER=${USERNAME}` を明示しているので
 **イメージを再ビルドすれば解消**する:
 
 ```bash
 docker rmi $(docker images -q 'dotfiles-nix-test*') 2>/dev/null || true
-./docker/run.sh
+./docker/debug/run.sh
 ```
 
 旧イメージのまま動かしているセッションでの緊急回避:
@@ -214,9 +179,9 @@ export USER=$(id -un)
 マウントしたリポジトリの所有者がホスト側 UID で、コンテナ内ユーザの
 UID と一致しないと git (libgit2) の所有者チェックに引っかかる。
 
-`docker/run.sh` がホストの `id -u` / `id -g` を build-arg で渡し、
+`docker/debug/run.sh` がホストの `id -u` / `id -g` を build-arg で渡し、
 イメージタグ (`dotfiles-nix-test:<uid>-<gid>`) も UID/GID 単位で
-分離しているので、**`./docker/run.sh` で起動し直せば解消**する。
+分離しているので、**`./docker/debug/run.sh` で起動し直せば解消**する。
 
 それでも残る (古いイメージを `docker run` で直接呼んでいる等) 場合の
 緊急回避:
@@ -273,7 +238,7 @@ ln -sfn ~/dotfiles-nix ~/.config/home-manager
 
 ```bash
 grep 'username' flake.nix
-grep 'ARG USERNAME' docker/Dockerfile
+grep 'ARG USERNAME' docker/debug/Dockerfile
 ```
 
 ### `GITHUB_TOKEN` がコンテナ内で空
@@ -282,7 +247,7 @@ grep 'ARG USERNAME' docker/Dockerfile
 
 ```bash
 echo "${GITHUB_TOKEN:0:4}..."   # ホスト側
-./docker/run.sh bash -c 'echo "${GITHUB_TOKEN:0:4}..."'
+./docker/debug/run.sh bash -c 'echo "${GITHUB_TOKEN:0:4}..."'
 ```
 
 ### ビルドが非常に遅い (Nix インストール後)
@@ -299,7 +264,7 @@ nix store ping --store https://cache.nixos.org
 
 ## Docker を使わない確認方法 (参考)
 
-実際の Ubuntu / macOS 環境がある場合は Docker 不要です。
+実際の Ubuntu 環境がある場合は Docker 不要です。
 
 ```bash
 nix flake check

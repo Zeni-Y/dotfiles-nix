@@ -1,5 +1,5 @@
 {
-  description = "Zeni-Y dotfiles managed by Nix (macOS + Ubuntu)";
+  description = "Zeni-Y dotfiles managed by Nix (Linux / Ubuntu)";
 
   # ─────────────────────────────────────────────────────────────
   # 入力 (依存パッケージのソース)
@@ -9,12 +9,6 @@
 
     home-manager = {
       url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # macOS のシステム設定 (Homebrew 連携・defaults write 等) に使う
-    nix-darwin = {
-      url = "github:nix-darwin/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -28,10 +22,12 @@
 
   # ─────────────────────────────────────────────────────────────
   # 出力 (このリポジトリが提供する設定)
-  #   - homeConfigurations.* : Ubuntu などで standalone Home Manager を使う場合
-  #   - darwinConfigurations.* : macOS で nix-darwin + Home Manager を使う場合
+  #   - homeConfigurations.* : standalone Home Manager の適用対象
+  #
+  # 対象は Linux (Ubuntu / Docker コンテナ内含む) のみ。
+  # macOS (nix-darwin) と nix-portable は対象外。
   # ─────────────────────────────────────────────────────────────
-  outputs = inputs @ { self, nixpkgs, home-manager, nix-darwin, nix-claude-code, ... }:
+  outputs = inputs @ { self, nixpkgs, home-manager, nix-claude-code, ... }:
     let
       # 個人情報。新しいマシンを足すときはここから上書きするだけで済む。
       userInfo = {
@@ -45,13 +41,6 @@
       # 適用コマンド:
       #   nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
       homeConfigurations."${userInfo.username}@ubuntu" = import ./hosts/ubuntu.nix {
-        inherit inputs userInfo;
-      };
-
-      # ─── macOS (nix-darwin + Home Manager) ───
-      # 適用コマンド:
-      #   sudo darwin-rebuild switch --flake .#mac
-      darwinConfigurations."mac" = import ./hosts/macos.nix {
         inherit inputs userInfo;
       };
     };

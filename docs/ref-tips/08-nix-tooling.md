@@ -51,7 +51,7 @@
 
 ### - [ ] `nix run .#switch` 系のショートカット justfile / Makefile
 
-- **概要**: `darwin-rebuild switch --flake .` 等の長いコマンドを 1 単語に
+- **概要**: `home-manager switch --flake .#zenimoto@ubuntu` 等の長いコマンドを 1 単語に
 - **参照**: ryoppippi `flake.nix` apps
 - **メリット**: タイプ量削減
 - **デメリット**: 既存 `scripts/setup.sh` と棲み分け要

@@ -35,7 +35,7 @@ make run
 
 `-d` でバックグラウンド起動し、PID 1 として `sshd -D` が常駐するため、ホスト側から **いつでも SSH 接続できる状態が維持される**。`--restart unless-stopped` を付けているので Docker / ホスト再起動後も自動復帰する。
 
-GPU は `nvidia-smi` がホストにある場合のみ `--gpus all` が自動付与される（Mac では自動で外れる）。
+GPU は `nvidia-smi` がホストにある場合のみ `--gpus all` が自動付与される。
 
 ### コンテナに入る
 

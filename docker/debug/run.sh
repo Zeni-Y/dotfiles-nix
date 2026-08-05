@@ -6,11 +6,12 @@
 #   - 追加引数はそのままコンテナのコマンドに渡される
 #
 # 使い方:
-#   docker/run.sh                 # 対話シェル (デフォルト)
-#   docker/run.sh ./scripts/setup.sh
+#   docker/debug/run.sh                 # 対話シェル (デフォルト)
+#   docker/debug/run.sh ./scripts/setup.sh
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# このスクリプトは docker/debug/ にあるので 2 階層上がリポジトリルート
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 USERNAME="${USERNAME:-zenimoto}"
 HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
@@ -24,7 +25,7 @@ if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
         --build-arg "USERNAME=${USERNAME}" \
         --build-arg "USER_UID=${HOST_UID}" \
         --build-arg "USER_GID=${HOST_GID}" \
-        -f "${REPO_ROOT}/docker/Dockerfile" -t "${IMAGE}" "${REPO_ROOT}"
+        -f "${REPO_ROOT}/docker/debug/Dockerfile" -t "${IMAGE}" "${REPO_ROOT}"
 fi
 
 exec docker run --rm -it \

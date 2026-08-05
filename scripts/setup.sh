@@ -2,30 +2,30 @@
 # ─────────────────────────────────────────────────────────────
 # Nix セットアップスクリプト
 #
-#   - sudo が使える + systemd が動いている環境では Determinate Systems の
-#     nix-installer で通常の (multi-user) Nix をインストールする
-#   - sudo が使えるが systemd が無い環境 (Docker コンテナなど) では
+# 前提: **sudo (または root) が使えること**。
+#   Nix は Determinate Systems の nix-installer で /nix にインストールする
+#   multi-user 構成のみを対象とする。sudo が使えない環境 (nix-portable 等) は
+#   一切サポートしない。sudo が無い環境ではシステム管理者に Nix の
+#   インストールを依頼すること。
+#
+#   - systemd が動いている環境ではそのままインストールする
+#   - systemd が無い環境 (Docker コンテナなど) では
 #     `nix-installer install linux --init none` で daemon の自動起動を
-#     諦めた状態でインストールする
-#   - sudo が使えない環境では nix-portable をダウンロードして
-#     ~/.local/bin/nix-portable に配置する
+#     諦めた状態でインストールし、~/.bashrc に daemon 起動スニペットを入れる
 #
 # 使い方:
-#   ./scripts/setup.sh              # 自動判定
-#   ./scripts/setup.sh --portable   # 強制的に nix-portable
-#   ./scripts/setup.sh --system     # 強制的に通常の Nix
-#                                   #   (systemd が無ければ --init none で続行)
+#   ./scripts/setup.sh              # systemd の有無を自動判定
+#   ./scripts/setup.sh --init-none  # 強制的に `linux --init none` プラン
+#                                   #   (systemd 判定を上書きしたいとき)
 # ─────────────────────────────────────────────────────────────
 set -eu
 
-MODE="auto"
+FORCE_INIT_NONE=0
 for arg in "$@"; do
     case "$arg" in
-        --portable) MODE="portable" ;;
-        --system)   MODE="system" ;;
-        --auto)     MODE="auto" ;;
+        --init-none) FORCE_INIT_NONE=1 ;;
         -h|--help)
-            sed -n '2,18p' "$0"
+            sed -n '2,20p' "$0"
             exit 0
             ;;
         *)
@@ -44,9 +44,9 @@ err() { printf '\033[0;31m✗\033[0m %s\n' "$*" >&2; }
 # パスワード入力なしで通る (-n) ことが必須ではないが、
 # 少なくとも sudoers に登録されている必要がある。
 have_sudo() {
-    command -v sudo >/dev/null 2>&1 || return 1
     # root で実行されている場合は sudo 不要
     [ "$(id -u)" = "0" ] && return 0
+    command -v sudo >/dev/null 2>&1 || return 1
     # passwordless sudo が通るならそれで OK
     sudo -n true 2>/dev/null && return 0
     # tty があり対話的に sudo できそうならそれで OK とする
@@ -109,10 +109,10 @@ EOM
     fi
 }
 
-# ─── 通常の Nix をインストール (Determinate Systems installer) ─
+# ─── Nix をインストール (Determinate Systems installer) ───────
 # 引数:
 #   $1 = "with-systemd" or "no-systemd"
-install_system_nix() {
+install_nix() {
     init_mode="${1:-with-systemd}"
 
     if command -v nix >/dev/null 2>&1; then
@@ -175,100 +175,23 @@ EOM
 EOM
 }
 
-# ─── nix-portable をダウンロード ─────────────────────────────
-# 参考: https://github.com/DavHau/nix-portable
-install_nix_portable() {
-    # ~/.local/bin を PATH の先頭に追加する。
-    # 現在のプロセスにも反映しつつ、対話シェルが次回起動時にも読むよう
-    # 適切な rc ファイルへ追記する。
-    #
-    # rc ファイル選択:
-    #   bash → .bashrc (非ログイン対話シェル) と .profile (ログインシェル)
-    #   zsh  → .zshrc
-    # .profile だけだと Docker の `bash` などでは読まれないので注意。
-    case ":$PATH:" in
-        *":$HOME/.local/bin:"*) ;;
-        *) export PATH="$HOME/.local/bin:$PATH" ;;
-    esac
+# ─── 実行 ────────────────────────────────────────────────────
+if ! have_sudo; then
+    err "sudo (または root) が使えないため Nix をインストールできません"
+    err "このリポジトリは sudo の無い環境 (nix-portable など) をサポートしません"
+    err "システム管理者に Nix のインストールを依頼してください:"
+    err "  curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install"
+    exit 1
+fi
 
-    case "${SHELL:-}" in
-        *zsh) rcfiles="$HOME/.zshrc" ;;
-        *)    rcfiles="$HOME/.bashrc $HOME/.profile" ;;
-    esac
-
-    for rcfile in $rcfiles; do
-        # 既に書かれている場合は重複させない
-        if [ ! -f "$rcfile" ] || ! grep -qs '\.local/bin' "$rcfile"; then
-            printf '\n# Added by dotfiles-nix setup.sh\nexport PATH="$HOME/.local/bin:$PATH"\n' \
-                >>"$rcfile"
-            ok "${rcfile} に PATH を追記しました"
-        fi
-    done
-
-    target="$HOME/.local/bin/nix-portable"
-    mkdir -p "$HOME/.local/bin"
-
-    if [ -x "$target" ]; then
-        ok "nix-portable は既に配置済み: $target"
-    else
-        log "nix-portable をダウンロードします"
-        arch="$(uname -m)"
-        url="https://github.com/DavHau/nix-portable/releases/latest/download/nix-portable-${arch}"
-        curl -L "$url" -o "$target"
-        chmod +x "$target"
-        ok "nix-portable をダウンロードしました: $target"
-    fi
-
-    cat <<'EOM'
-
-nix-portable は単体バイナリで、/nix への書き込みも sudo も不要です。
-普段使う nix コマンドは "nix-portable nix ..." の形で実行してください。
-
-例:
-
-  # flake のメタデータを表示
-  nix-portable nix flake metadata
-
-  # Home Manager を適用 (Ubuntu 用)
-  nix-portable nix run home-manager/master -- \
-    switch --flake .#zenimoto@ubuntu
-
-エイリアスを張っておくと普段使いが楽になります:
-
-  alias nix='nix-portable nix'
-EOM
-}
-
-# ─── ディスパッチ ────────────────────────────────────────────
-case "$MODE" in
-    system)
-        if ! have_sudo; then
-            err "sudo が使えないため --system モードでインストールできません"
-            err "--portable を指定するか、引数なしで実行してください"
-            exit 1
-        fi
-        if have_systemd; then
-            install_system_nix with-systemd
-        else
-            install_system_nix no-systemd
-        fi
-        ;;
-    portable)
-        install_nix_portable
-        ;;
-    auto)
-        if have_sudo; then
-            if have_systemd; then
-                log "sudo + systemd を検出しました → 通常の Nix をインストールします"
-                install_system_nix with-systemd
-            else
-                log "sudo は使えるが systemd が無い環境を検出しました (コンテナなど)"
-                log "→ \`linux --init none\` プランで Nix をインストールします"
-                install_system_nix no-systemd
-            fi
-        else
-            log "sudo が使えない環境を検出しました → nix-portable を使用します"
-            install_nix_portable
-        fi
-        ;;
-esac
+if [ "$FORCE_INIT_NONE" = "1" ]; then
+    log "--init-none が指定されました → \`linux --init none\` プランでインストールします"
+    install_nix no-systemd
+elif have_systemd; then
+    log "sudo + systemd を検出しました → 通常の Nix をインストールします"
+    install_nix with-systemd
+else
+    log "sudo は使えるが systemd が無い環境を検出しました (Docker コンテナなど)"
+    log "→ \`linux --init none\` プランで Nix をインストールします"
+    install_nix no-systemd
+fi
