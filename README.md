@@ -1,11 +1,20 @@
 # dotfiles-nix
 
 [Zeni-Y/dotfiles](https://github.com/Zeni-Y/dotfiles) (chezmoi 管理) を参考に、
-**Nix Flakes + Home Manager + nix-darwin** で macOS / Ubuntu の両方の環境を
+**Nix Flakes + Home Manager** で Linux (Ubuntu / Docker コンテナ) 環境を
 宣言的に管理するための dotfiles です。
 
 CI やテストは含めず、設定が増えても見通しを保てるように
 トピックごとにモジュールを分割しています。
+
+## 前提とスコープ
+
+- **対象 OS は Linux のみ**。Docker コンテナ内での利用も想定します。
+  macOS (nix-darwin / Homebrew) は対象外です。
+- **`sudo` が使えることが前提**。Nix は `/nix` にインストールする
+  通常の (multi-user) 構成のみをサポートします。
+- **`nix-portable` は使いません**。`sudo` が使えない環境は考慮しないので、
+  そのような環境ではシステム管理者に Nix のインストールを依頼してください。
 
 > **Nix の構文・概念・ライフサイクルを学びたい場合は [docs/nix-concepts.md](docs/nix-concepts.md) を参照してください。**
 
@@ -32,7 +41,6 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | ターミナル | tmux (prefix `C-t`, resurrect/continuum, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
 | エディタ | Neovim (defaultEditor)・Zed (`~/.config/zed/{settings,keymap}.json` を生成) |
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi / ghq |
-| macOS のみ | Homebrew Cask (WezTerm, Zed, Raycast, Rectangle, 1Password, Slack, VSCode, Docker, Obsidian, …)・Dock / Finder / キーボード / トラックパッドの defaults write |
 
 ---
 
@@ -40,14 +48,13 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 ```
 .
-├── flake.nix                # 入力 (nixpkgs / home-manager / nix-darwin) と出力を定義
+├── flake.nix                # 入力 (nixpkgs / home-manager) と出力を定義
 ├── flake.lock               # 依存バージョンの固定 (初回 `nix flake update` で生成)
 │
 ├── hosts/                   # ホスト (= 適用対象) 単位の入口
-│   ├── macos.nix            #   nix-darwin + Home Manager
 │   └── ubuntu.nix           #   standalone Home Manager
 │
-├── home/                    # ユーザー領域 (~/) の設定。OS を問わない
+├── home/                    # ユーザー領域 (~/) の設定
 │   ├── default.nix          #   配下のモジュールを集約
 │   ├── packages.nix         #   "入れるだけ" の CLI ツール群
 │   ├── git.nix              #   Git
@@ -69,27 +76,31 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │       ├── direnv.nix
 │       └── gh.nix
 │
-└── darwin/                  # macOS のシステム領域。nix-darwin モジュール
-    ├── default.nix
-    ├── system.nix           # Dock / Finder / キーボードなど defaults write 相当
-    └── homebrew.nix         # Cask / brew formula / Mac App Store
+├── scripts/
+│   └── setup.sh             # Nix のインストール (sudo 必須)
+│
+└── docker/                  # Docker 上の検証環境 / 開発環境
+    ├── debug/               #   素の Ubuntu で setup.sh を検証する箱
+    └── working/             #   SSH で入る常駐開発コンテナ
 ```
 
 設計の指針:
 
-- **OS 共通の設定は `home/` に置く**。Ubuntu でも macOS でも同じものが入る。
-- **OS 固有の設定だけ `darwin/` に置く**。Linux 用の似た層が要るときは `nixos/` を増やす。
+- **ユーザー領域の設定はすべて `home/` に置く**。Ubuntu でも Docker コンテナでも同じものが入る。
 - **ホスト構成は `hosts/` に集約する**。新しいマシンを足すときは
   `flake.nix` の outputs と `hosts/<name>.nix` を 1 つ書くだけで済む。
+- **システム領域は Nix で管理しない**。対象は NixOS ではない Linux なので、
+  `~/` 配下だけを Home Manager で宣言的に管理する。
 
 ---
 
 ## 前提ソフトウェアのインストール
 
-### 共通: Nix
+### Nix
 
-リポジトリ同梱の `scripts/setup.sh` が、環境に応じて自動で
-適切な Nix をセットアップする。
+リポジトリ同梱の `scripts/setup.sh` が
+[Determinate Nix Installer](https://github.com/DeterminateSystems/nix-installer)
+で通常の (multi-user) Nix をインストールする。**`sudo` (または root) が必須**。
 
 ```bash
 ./scripts/setup.sh
@@ -99,12 +110,18 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 | 環境 | 動作 |
 | --- | --- |
-| `sudo` + `systemd` が使える | [Determinate Nix Installer](https://github.com/DeterminateSystems/nix-installer) で通常の (multi-user) Nix をインストール |
-| `sudo` は使えるが `systemd` が無い (Docker コンテナなど) | 同じ Determinate Nix Installer を `linux --init none` プランで実行。`nix-daemon` の自動起動だけ諦める |
-| `sudo` が使えない | [nix-portable](https://github.com/DavHau/nix-portable) を `~/.local/bin/nix-portable` にダウンロード |
+| `sudo` + `systemd` が使える | そのままインストール。`nix-daemon` は systemd が面倒を見る |
+| `sudo` は使えるが `systemd` が無い (Docker コンテナなど) | `linux --init none` プランでインストール。`nix-daemon` の自動起動だけ諦め、代わりに `~/.bashrc` へ起動スニペットを追記する |
+| `sudo` が使えない | **サポート外**。エラーで停止する |
 
-systemd が無い環境では `nix-daemon` を自前で起動する必要があるので、
-インストール後に表示される指示に従って `~/.bashrc` などに以下を追記しておくと楽:
+systemd の有無は自動判定するが、明示したい場合は:
+
+```bash
+./scripts/setup.sh --init-none   # 強制的に `linux --init none` プラン
+```
+
+systemd が無い環境では `nix-daemon` を自前で起動する必要がある。
+`setup.sh` が `~/.bashrc` に以下を追記するので、新しいシェルを開けば自動起動する:
 
 ```bash
 if ! pgrep -x nix-daemon >/dev/null 2>&1; then
@@ -112,72 +129,19 @@ if ! pgrep -x nix-daemon >/dev/null 2>&1; then
 fi
 ```
 
-明示的に切り替えたい場合:
-
-```bash
-./scripts/setup.sh --system     # 強制的に通常の Nix (sudo 必須)
-                                # systemd が無ければ自動で --init none に切り替わる
-./scripts/setup.sh --portable   # 強制的に nix-portable
-```
-
 flakes と `nix` コマンドはインストーラが既定で有効化してくれる。
 公式インストーラを手動で使った場合は `~/.config/nix/nix.conf` に
 `experimental-features = nix-command flakes` を追記する。
 
-#### nix-portable を使う場合の注意
+#### `sudo` が使えない環境について
 
-nix-portable は単体バイナリで `/nix` への書き込みも root も不要なため、
-共有マシンや CI コンテナ、開発用 SSH 接続先などで便利。
-ただし通常の `nix` コマンドの代わりに、すべて `nix-portable` 経由で呼び出す:
+このリポジトリは **`sudo` の無い環境を一切考慮しない**。
+`nix-portable` のような無権限で動かす仕組みは使わない。
+共有サーバなどで `/nix` を作れない場合は、システム管理者に
+上記インストーラでの Nix 導入を依頼すること。
 
-```bash
-# flake の確認
-nix-portable nix flake metadata
-
-# Home Manager を適用 (Ubuntu 用)
-nix-portable nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
-```
-
-シェルにエイリアスを張っておくと使い勝手が良い:
-
-```bash
-alias nix='nix-portable nix'
-```
-
-##### experimental-features (flakes / nix-command) について
-
-nix-portable は **`flakes` と `nix-command` をデフォルトで有効化した状態**で
-配布されているため、`/etc/nix/nix.conf` を書いたり追加フラグを渡したりする
-必要はない (公式 README: "Features `flakes` and `nix-command` are enabled
-out of the box.")。インストール直後から `nix-portable nix flake ...` が動く。
-
-`ca-derivations` など追加の experimental feature を有効にしたい場合は、
-通常の Nix と同じ方法で設定する。デフォルト値を上書きしないよう
-`extra-experimental-features` を使うのが安全:
-
-```bash
-mkdir -p ~/.config/nix
-echo 'extra-experimental-features = ca-derivations' >> ~/.config/nix/nix.conf
-
-# あるいは環境変数で
-export NIX_CONFIG="extra-experimental-features = ca-derivations"
-
-# あるいは 1 回限りのフラグ
-nix-portable nix --extra-experimental-features ca-derivations build ...
-```
-
-なお nix-portable 固有の挙動 (実行ランタイム選択や保存場所変更など) は
-`NP_RUNTIME` / `NP_LOCATION` / `NP_DEBUG` といった `NP_*` 系の環境変数で
-制御する。これらは Nix の experimental-features とは別物。
-
-### macOS のみ: Homebrew
-
-nix-darwin の Homebrew モジュールは「Homebrew 本体が入っている前提」で動くため、
-先に入れておく:
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+Docker コンテナ内での利用は今後も想定するが、その場合も
+コンテナ内のユーザに sudo (NOPASSWD) を持たせる前提とする。
 
 ---
 
@@ -236,25 +200,8 @@ Existing file '/home/<you>/.bashrc' would be clobbered
   普通に上書きされる。
 - 退避された `.backup` の中身が要らないと確認できたら、後から消して構わない。
 
-`sudo` が使えない環境 (= nix-portable をインストールした場合) は
-すべての `nix` 呼び出しを `nix-portable nix` に置き換える:
-
-```bash
-nix-portable nix run home-manager/master -- switch -b backup --flake .#zenimoto@ubuntu
-```
-
-### macOS (nix-darwin)
-
-```bash
-# nix-darwin を初回だけブートストラップ
-nix run nix-darwin -- switch --flake .#mac
-
-# 以降は darwin-rebuild が使える
-sudo darwin-rebuild switch --flake .#mac
-```
-
-`mac` という名前は `flake.nix` の `darwinConfigurations.<name>` に対応する。
-複数 Mac ある場合はこの名前を hostname ごとに分ける。
+`zenimoto@ubuntu` という名前は `flake.nix` の `homeConfigurations.<name>` に対応する。
+マシンを増やすときはこの名前を分け、`hosts/<name>.nix` を追加する。
 
 ---
 
@@ -262,8 +209,7 @@ sudo darwin-rebuild switch --flake .#mac
 
 ```bash
 # 設定を編集したあとの反映
-home-manager switch --flake .#zenimoto@ubuntu      # Ubuntu
-sudo darwin-rebuild switch --flake .#mac           # macOS
+home-manager switch --flake .#zenimoto@ubuntu
 
 # 依存パッケージのアップデート (flake.lock を更新)
 nix flake update
@@ -278,10 +224,6 @@ nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage
 # Home Manager は世代ベースで戻れる
 home-manager generations
 /nix/store/...-home-manager-generation/activate   # 任意の世代に戻す
-
-# nix-darwin 側
-sudo darwin-rebuild --list-generations
-sudo darwin-rebuild --switch-generation <n>
 ```
 
 ---
@@ -290,7 +232,6 @@ sudo darwin-rebuild --switch-generation <n>
 
 - **新しい CLI ツールを足したい** → `home/packages.nix` の `home.packages` に追加。
   シェル統合が必要なものは `home/cli/<name>.nix` を作って `home/cli/default.nix` で imports する。
-- **Mac の GUI アプリを足したい** → `darwin/homebrew.nix` の `casks` に追加。
 - **fish のプラグインを足したい** → `home/shell/fish.nix` の `plugins` に
   `{ name; src = pkgs.fishPlugins.<name>.src; }` を追加。
 - **マシンを増やしたい** → `hosts/<name>.nix` を作り、`flake.nix` の outputs に登録。
@@ -299,7 +240,7 @@ sudo darwin-rebuild --switch-generation <n>
 
 ## 既知のハマりどころ
 
-- **初回 `home-manager switch` では `-b backup` を付ける** (Linux の standalone モード)。
+- **初回 `home-manager switch` では `-b backup` を付ける**。
   既存の `~/.bashrc` / `~/.profile` などがあると Home Manager は黙って上書きせず
   `Existing file '...' would be clobbered` で停止する。`-b backup` を付ければ
   `.backup` 拡張子で退避してからリンクを張り直してくれる。
@@ -323,16 +264,13 @@ sudo darwin-rebuild --switch-generation <n>
   が出るのは daemon が落ちているサイン。`~/.bashrc` に
   `pgrep -x nix-daemon || sudo /nix/var/nix/profiles/default/bin/nix-daemon &` を
   仕込んでおくと毎回手で叩かなくて済む。
-- **macOS の `system.defaults` の一部はログアウトしないと反映されない** (Dock など)。
-- **Homebrew の `cleanup = "zap"`** は、ここで宣言していないものを問答無用でアンインストールする。
-  既存環境を取り込む段階では `"check"` または `"uninstall"` の方が安全。
 - **`pkgs.fishPlugins` にないプラグイン**を使いたい場合は `fetchFromGitHub` で src を固定する
   (詳細は `home/shell/fish.nix` のコメント参照)。
 - **fish_plugins (fisher)** をリポジトリに残しても Nix 管理下では機能しないので消して良い。
 
 Docker コンテナ固有のトラブル (UID/GID 不一致による
 `repository ... is not owned by current user`、`USER: unbound variable` など) は
-[docker/README.md の「よくあるエラーと対処」](docker/README.md#よくあるエラーと対処) を参照。
+[docker/debug/README.md の「よくあるエラーと対処」](docker/debug/README.md#よくあるエラーと対処) を参照。
 
 ---
 
@@ -341,4 +279,4 @@ Docker コンテナ固有のトラブル (UID/GID 不一致による
 - 元になった dotfiles: <https://github.com/Zeni-Y/dotfiles>
 - Nix Flakes: <https://nix.dev/concepts/flakes>
 - Home Manager: <https://nix-community.github.io/home-manager/>
-- nix-darwin: <https://github.com/nix-darwin/nix-darwin>
+- Determinate Nix Installer: <https://github.com/DeterminateSystems/nix-installer>

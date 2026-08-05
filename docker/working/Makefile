@@ -20,7 +20,7 @@ SSH_PORT := 2222
 # コンテナ起動時に https://github.com/$(GITHUB_USER).keys から authorized_keys を取得する
 GITHUB_USER ?= Zeni-Y
 
-# NVIDIA GPU が利用可能なときだけ --gpus all を付ける（Mac では自動で外れる）
+# NVIDIA GPU が利用可能なときだけ --gpus all を付ける
 GPU_FLAG := $(shell nvidia-smi >/dev/null 2>&1 && echo --gpus all)
 
 # `make run -- <extra args>` の `--` 以降を docker run に渡せるようにする。

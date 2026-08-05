@@ -12,15 +12,6 @@
 - **使い方**: `fffe [query]`
 - **実装メモ**: `pkgs.writeShellApplication { name = "fffe"; runtimeInputs = [ pkgs.fd pkgs.fzf ]; text = ...; }`
 
-### - [ ] `wakeup` — `caffeinate` ラッパー (macOS)
-
-- **概要**: スリープ防止
-- **参照**: `ref/kawarimidoll-dotfiles/bin/wakeup`
-- **メリット**: 長いビルド/DL 中の sleep 防止
-- **デメリット**: macOS 専用
-- **使い方**: `wakeup [duration]`
-- **実装メモ**: `darwin/` 専用に配置
-
 ### - [ ] `24-bit-color` — 端末カラー確認
 
 - **概要**: TrueColor 表示確認

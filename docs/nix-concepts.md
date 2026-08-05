@@ -11,9 +11,11 @@
 3. [Flakes のしくみ](#3-flakes-のしくみ)
 4. [モジュールシステム](#4-モジュールシステム)
 5. [Home Manager のライフサイクル](#5-home-manager-のライフサイクル)
-6. [nix-darwin のライフサイクル](#6-nix-darwin-のライフサイクル)
-7. [よく使うコマンド早見表](#7-よく使うコマンド早見表)
-8. [外部ツールによる変更を Nix に取り込む](#8-外部ツールによる変更を-nix-に取り込む)
+6. [よく使うコマンド早見表](#6-よく使うコマンド早見表)
+7. [外部ツールによる変更を Nix に取り込む](#7-外部ツールによる変更を-nix-に取り込む)
+
+> このリポジトリの対象は **Linux (Ubuntu / Docker コンテナ) のみ** です。
+> macOS (nix-darwin) と nix-portable は扱いません。
 
 ---
 
@@ -149,9 +151,9 @@ with pkgs; [
 文ではなく式なので、必ず `else` が要ります。
 
 ```nix
-if stdenv.isDarwin
-  then "/Users/zenimoto"
-  else "/home/zenimoto"
+if config.programs.fish.enable
+  then "fish"
+  else "bash"
 ```
 
 ### 1-9. `import`
@@ -286,7 +288,6 @@ flake.nix
   outputs = { nixpkgs, ... }:  # inputs が引数として渡ってくる
   {
     homeConfigurations."zenimoto@ubuntu" = ...;
-    darwinConfigurations."mac" = ...;
   };
 }
 ```
@@ -335,8 +336,7 @@ inputs = {
 
 | キー | 用途 |
 |---|---|
-| `homeConfigurations.<name>` | `home-manager switch` のターゲット |
-| `darwinConfigurations.<name>` | `darwin-rebuild switch` のターゲット |
+| `homeConfigurations.<name>` | `home-manager switch` のターゲット (このリポジトリで使うのはこれ) |
 | `nixosConfigurations.<name>` | `nixos-rebuild switch` のターゲット |
 | `packages.<system>.<name>` | `nix build .#<name>` でビルドできるパッケージ |
 | `devShells.<system>.<name>` | `nix develop .#<name>` で入れる開発シェル |
@@ -517,77 +517,13 @@ home-manager expire-generations "-30 days"
 
 ---
 
-## 6. nix-darwin のライフサイクル
-
-### 6-1. nix-darwin とは
-
-macOS には NixOS のようなシステム全体を Nix で管理する仕組みがデフォルトで存在しません。  
-**nix-darwin** はそのギャップを埋め、macOS のシステム設定を宣言的に管理します。
-
-```
-nix-darwin が管理するもの
-  ├── /etc/zshrc, /etc/bashrc などシステムシェル設定
-  ├── system.defaults (defaults write 相当の設定)
-  ├── Homebrew (casks / formulae の宣言)
-  └── launchd サービス
-```
-
-### 6-2. `darwin-rebuild switch` が何をするか
-
-```
-sudo darwin-rebuild switch --flake .#mac
-        │
-        ▼
-① flake.nix を評価
-   darwinConfigurations."mac" を取得
-
-        ▼
-② darwin/ モジュールと home-manager モジュールをマージ
-
-        ▼
-③ 必要なパッケージを Realise
-
-        ▼
-④ macOS システムへの Activation
-   ├── system.defaults を defaults write で書き込み
-   ├── /etc/ 以下のファイルを更新
-   ├── Homebrew: brew bundle を実行
-   │     → casks に書いたものをインストール
-   │     → cleanup = "zap" なら宣言にないものをアンインストール
-   └── Home Manager の activation も実行 (ユーザー設定を配置)
-
-        ▼
-⑤ 新しいシステム世代を登録
-```
-
-### 6-3. home-manager と nix-darwin の役割分担
-
-```
-nix-darwin
-  └── darwin/ 配下のモジュール
-        ├── /etc/ レベルの設定
-        └── Homebrew (管理者権限が必要な操作)
-
-home-manager (nix-darwin に同居)
-  └── home/ 配下のモジュール
-        ├── ~/.config/ 以下の設定ファイル
-        └── ユーザー PATH に入るパッケージ
-```
-
-このリポジトリでは `hosts/macos.nix` が両者を 1 つの `darwinSystem` にまとめています。
-
----
-
-## 7. よく使うコマンド早見表
+## 6. よく使うコマンド早見表
 
 ### 設定の適用
 
 ```bash
-# Ubuntu: ユーザー設定を反映
+# ユーザー設定を反映
 home-manager switch --flake .#zenimoto@ubuntu
-
-# macOS: システム+ユーザー設定を反映
-sudo darwin-rebuild switch --flake .#mac
 
 # 変更内容をドライラン (実際には何もしない)
 home-manager build --flake .#zenimoto@ubuntu
@@ -618,9 +554,6 @@ nix shell nixpkgs#ripgrep
 # Home Manager の世代一覧
 home-manager generations
 
-# nix-darwin の世代一覧
-darwin-rebuild --list-generations
-
 # 古い世代を削除してからストアを GC
 home-manager expire-generations "-30 days"
 nix-collect-garbage -d
@@ -641,13 +574,13 @@ home-manager switch --flake .#zenimoto@ubuntu --show-trace
 
 ---
 
-## 8. 外部ツールによる変更を Nix に取り込む
+## 7. 外部ツールによる変更を Nix に取り込む
 
 外部ツール (Claude Code、`git config --global`、エディタの設定 UI など) が
 設定ファイルを書き換えようとしたとき、または書き換えた結果を Nix 設定に反映したいときの
 対処法をまとめます。
 
-### 8-1. まず「Nix が管理しているか」を確認する
+### 7-1. まず「Nix が管理しているか」を確認する
 
 HM が管理する設定ファイルは **Nix ストアへの symlink** になっており、**読み取り専用** です。
 
@@ -666,7 +599,7 @@ ls -la ~/.config/git/config
 
 ---
 
-### 8-2. ケース A: Nix が管理しているファイルを変更したい
+### 7-2. ケース A: Nix が管理しているファイルを変更したい
 
 `programs.git` などで管理している場合、**外部ツールからの書き込みは失敗します**。
 
@@ -684,8 +617,7 @@ git config --global user.email "new@example.com"
 $EDITOR home/git.nix
 
 # 2. 設定を反映する
-home-manager switch --flake .#zenimoto@ubuntu   # Ubuntu
-sudo darwin-rebuild switch --flake .#mac         # macOS
+home-manager switch --flake .#zenimoto@ubuntu
 ```
 
 > **重要**: 次の `switch` まで古い値が使われます。ツールが「設定を変更した」と報告しても、
@@ -693,7 +625,7 @@ sudo darwin-rebuild switch --flake .#mac         # macOS
 
 ---
 
-### 8-3. ケース B: Nix が管理していないファイルが変更された
+### 7-3. ケース B: Nix が管理していないファイルが変更された
 
 Claude Code の `settings.json` など、このリポジトリで宣言していないファイルは
 ツールが自由に読み書きできます。
@@ -728,11 +660,11 @@ home-manager switch --flake .#zenimoto@ubuntu
 ```
 
 > **注意**: Nix 管理下に置くと、以降 Claude Code は自動的にこのファイルを更新できなくなります。
-> ツールが設定を自動保存する場合は、Nix 管理外のままにしておく方が実用的です (→ 8-4 参照)。
+> ツールが設定を自動保存する場合は、Nix 管理外のままにしておく方が実用的です (→ 7-4 参照)。
 
 ---
 
-### 8-4. 「ツールに自動更新させたい」場合の方針
+### 7-4. 「ツールに自動更新させたい」場合の方針
 
 Claude Code・エディタのプラグイン設定など、**ツールが頻繁に自動書き換えるファイル**は
 Nix 管理外のままにしておくのが現実的です。
@@ -761,7 +693,7 @@ cp extras/claude-settings.json ~/.config/claude/settings.json
 
 ---
 
-### 8-5. 変更を Nix に取り込む標準的なワークフロー
+### 7-5. 変更を Nix に取り込む標準的なワークフロー
 
 外部ツールが設定を変更した後の「逆引き反映」の手順をまとめます。
 
@@ -817,7 +749,7 @@ Claude が書き換えた内容はそのまま有効です。次の `switch` で
 
 ---
 
-### 8-6. `home-manager switch` は Nix 宣言を強制適用する
+### 7-6. `home-manager switch` は Nix 宣言を強制適用する
 
 どのケースでも共通して覚えておくべきことがあります:
 
@@ -839,6 +771,5 @@ Nix 管理の設定は「ソースオブトゥルース (.nix ファイル)」�
 
 - [Nix 言語リファレンス](https://nix.dev/manual/nix/stable/language/)
 - [Home Manager オプション一覧](https://nix-community.github.io/home-manager/options.xhtml)
-- [nix-darwin オプション一覧](https://daiderd.com/nix-darwin/manual/index.html)
 - [nixpkgs パッケージ検索](https://search.nixos.org/packages)
 - [nix.dev (チュートリアル集)](https://nix.dev/)

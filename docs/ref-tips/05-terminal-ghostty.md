@@ -10,14 +10,6 @@
 - **デメリット**: home-manager の `programs.ghostty` モジュール対応バージョン要確認
 - **実装メモ**: `home/ghostty.nix` 新設
 
-### - [ ] Ghostty インストール (macOS)
-
-- **概要**: `homebrew.casks = [ "ghostty" ]`
-- **参照**: ryoppippi `darwin/`
-- **メリット**: 軽量・Metal accelerated
-- **デメリット**: WezTerm から移行するか併存するか要決定
-- **実装メモ**: `darwin/` Homebrew 設定
-
 ### - [ ] Scrollback を vim で編集 (`super+shift+a`)
 
 - **概要**: terminal スクロールバックをファイル化 → vim ターミナルで開く
