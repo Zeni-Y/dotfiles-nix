@@ -28,7 +28,7 @@ if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
         -f "${REPO_ROOT}/docker/debug/Dockerfile" -t "${IMAGE}" "${REPO_ROOT}"
 fi
 
-exec docker run --rm -it \
+exec docker run --rm -it --init \
     -v "${REPO_ROOT}:/home/${USERNAME}/dotfiles-nix" \
     -e GITHUB_TOKEN="${GITHUB_TOKEN:-}" \
     "${IMAGE}" "$@"

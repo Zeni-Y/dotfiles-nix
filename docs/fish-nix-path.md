@@ -1,8 +1,13 @@
 # fish に Nix の PATH が通る仕組み
 
-このリポジトリの `home/shell/fish.nix` には PATH を設定するコードが一切無いのに、
 fish を起動すると最初から `nix` / `home-manager` / Nix プロファイル経由のコマンドに
 パスが通っています。なぜ動くのかを順を追って説明します。
+
+> **現在の方針**: この「暗黙に PATH が通る」経路は **apt 版の `/usr/bin/fish` を
+> 起動したときにしか効きません**。このリポジトリでは fish 本体も flake.lock で
+> 固定したいので、fish は Nix store の絶対パスで起動し、PATH は
+> `home/shell/fish.nix` の `shellInit` で明示的に通しています (→ [3 章](#3-fish-が-vendor_confd-を読む経路))。
+> 以下はその背景として、暗黙経路のしくみを説明したものです。
 
 ---
 
@@ -73,16 +78,51 @@ fish は起動時に複数のディレクトリから vendor_conf.d を自動探
 2. **`XDG_DATA_DIRS` の各ディレクトリ配下**
    `XDG_DATA_DIRS` を `:` で分割し、それぞれの `fish/vendor_conf.d/` を見る
 
-このリポジトリの構成 (Ubuntu + standalone home-manager + Determinate Nix) では:
+Determinate Systems の nix-installer は、この `vendor_conf.d` を
+**システム側の fish** の位置 (`/usr/share/fish/vendor_conf.d/` など) に置きます。
+つまり自動で PATH が通るのは、apt などで入れた `/usr/bin/fish` を起動したときです。
 
-- fish 本体は `~/.nix-profile/bin/fish` から提供される
-- `$__fish_data_dir` は概ね `~/.nix-profile/share/fish` または fish パッケージの
-  nix store パス配下
-- そこから symlink / プロファイルマージで
-  `/nix/var/nix/profiles/default/etc/profile.d/nix.fish` などにたどり着く
+```console
+❯ which fish
+/usr/bin/fish        ← apt 版。ここから起動すると nix.fish が自動で読まれる
+```
 
 このため、bash の rc ファイルが nix-daemon.sh を一切読み込まない環境
-（Docker コンテナ等）でも、fish を直接起動するだけで PATH が通ります。
+（Docker コンテナ等）でも、fish を直接起動するだけで PATH が通っていました。
+
+### ただし「apt 版の fish が使われる」のは望ましくない
+
+このリポジトリは fish 本体もプラグインも Home Manager (flake.lock) で
+バージョン固定する方針です。PATH 引きで `/usr/bin/fish` が選ばれると、
+その固定が効きません。そこで **fish を参照する箇所は Nix store の
+絶対パスで指定**しています。
+
+| 箇所 | 指定 |
+| --- | --- |
+| `home/shell/bash.nix` | `exec ${pkgs.fish}/bin/fish` |
+| `home/cli/zellij.nix` | `default_shell = "${pkgs.fish}/bin/fish"` |
+
+その代わり、Nix store の fish は上記の `/usr/share/fish/vendor_conf.d/nix.fish`
+を拾えるとは限りません。どちらの fish で起動しても同じ PATH になるよう、
+`home/shell/fish.nix` の `shellInit` で明示的に読み込み／継ぎ足しています。
+
+```fish
+# nix.fish / nix-daemon.fish があれば source する
+for f in /nix/var/nix/profiles/default/etc/profile.d/nix.fish /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
+    if test -r $f
+        source $f
+    end
+end
+
+# 無い環境でも Nix プロファイルの bin を PATH 先頭に置く
+for d in /nix/var/nix/profiles/default/bin $HOME/.nix-profile/bin
+    if test -d $d
+        fish_add_path --global --move --prepend $d
+    end
+end
+```
+
+これで「vendor_conf.d に頼らず、宣言だけで PATH が決まる」状態になります。
 
 ---
 

@@ -44,6 +44,7 @@ build:
 run:
 	docker network inspect zenimoto >/dev/null 2>&1 || docker network create zenimoto
 	docker run -d --restart unless-stopped \
+		--init \
 		$(GPU_FLAG) \
 		--name "$(CONTAINER_NAME)" \
 		--network zenimoto \
@@ -69,7 +70,7 @@ logs:
 	docker logs -f "$(CONTAINER_NAME)"
 
 gpu-test:
-	docker run --gpus all --rm ubuntu:22.04 nvidia-smi
+	docker run --init --gpus all --rm ubuntu:22.04 nvidia-smi
 
 stop:
 	docker stop "$(CONTAINER_NAME)"
