@@ -1,5 +1,8 @@
 FROM ubuntu:24.04
 
+# Home Manager の homeConfigurations は /home/<username> を前提にするため、
+# flake.nix の userInfo.username と一致させる必要がある。
+# Makefile は既定でホストの $USER を渡す (make build USERNAME=... で上書き可)。
 ARG USERNAME=user
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
