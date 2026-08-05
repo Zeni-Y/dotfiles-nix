@@ -246,7 +246,7 @@ kawarimidoll 由来:
 
 > 現状 darwin/ にある defaults write を増強する候補（macOS のみ実装）。
 
-- Homebrew Cask 追加候補: WezTerm / Ghostty / Zed / Raycast / 1Password / Karabiner-Elements
+- Homebrew Cask 追加候補: WezTerm / Ghostty / Raycast / 1Password / Karabiner-Elements
 - `system.defaults.NSGlobalDomain` 系の追加項目（KeyRepeat, InitialKeyRepeat, AppleShowAllExtensions 等）
 - Touch ID for sudo（`security.pam.enableSudoTouchIdAuth`）
 - Dock / Finder / TextEdit のデフォルト調整
