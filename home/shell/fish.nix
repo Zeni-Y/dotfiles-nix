@@ -60,8 +60,38 @@
       # ghq でクローンしたリポジトリ用
       set -gx GHQ_ROOT $HOME/ghq
 
-      # fzf のキーバインドを fish 用に
-      set -gx FZF_DEFAULT_OPTS "--height 40% --layout=reverse --border"
+      # ─────────────────────────────────────────────────────
+      # 暗すぎる文字色の底上げ (黒背景対策)
+      #
+      # fish と pure は「控えめな情報」に brblack を割り当てる。
+      # Catppuccin Mocha だと brblack = #585b70、背景 #1e1e2e に
+      # 対するコントラスト比は 1.6:1 しかなく、プロンプトの git 情報
+      # (main*) や入力補完のゴースト表示がほぼ読めない。
+      #
+      # 明るい ANSI 色 (blue/red/yellow など) を使っている箇所は
+      # 端末のテーマに追随して見えるので触らない。暗い既定値だけを
+      # 灰色系の実値に差し替える。WCAG AA (4.5:1) は満たす。
+      #
+      # conf.d/*.fish (pure 本体) は config.fish より先に読まれ、
+      # pure は universal 変数へ既定値を入れる。fish は global を
+      # universal より優先して解決するので、ここで上書きできる。
+      # ─────────────────────────────────────────────────────
+
+      # git ブランチ名と dirty マーク、ユーザ名・ホスト名など。
+      # pure_color_git_branch などは "pure_color_mute" という
+      # 変数名を値に持つ間接参照なので、mute を変えれば波及する。
+      set -g pure_color_mute a6adc8   # subtext0  7.4:1
+
+      # 入力補完のゴースト表示 (既定 555)。入力済みの文字より
+      # 暗く、それでも読める明度にする。
+      set -g fish_color_autosuggestion 9399b2   # overlay2  5.8:1
+
+      # コメントも同じ理由で暗い既定値のことがある
+      set -g fish_color_comment 9399b2
+
+      # Tab で開く補完候補メニュー。説明文と選択行が沈みやすい。
+      set -g fish_pager_color_description a6adc8
+      set -g fish_pager_color_selected_background --background=45475a
     '';
   };
 }

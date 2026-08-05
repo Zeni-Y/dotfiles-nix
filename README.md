@@ -234,6 +234,11 @@ home-manager generations
   シェル統合が必要なものは `home/cli/<name>.nix` を作って `home/cli/default.nix` で imports する。
 - **fish のプラグインを足したい** → `home/shell/fish.nix` の `plugins` に
   `{ name; src = pkgs.fishPlugins.<name>.src; }` を追加。
+- **プロンプトや補完の文字色を変えたい** → `home/shell/fish.nix` の
+  `interactiveShellInit` にある配色ブロック。fish と pure は控えめな情報
+  (git ブランチ名・入力補完のゴースト表示など) に `brblack` を当てるため、
+  黒背景だと沈む。そこだけ灰色系の実値に差し替えてある。
+  fzf の分は `home/cli/fzf.nix` の `colors`。
 - **マシンを増やしたい** → `hosts/<name>.nix` を作り、`flake.nix` の outputs に登録。
 
 ---
