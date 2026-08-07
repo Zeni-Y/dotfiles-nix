@@ -76,6 +76,33 @@ make run   USERNAME=zenimoto
 make run
 ```
 
+`make run` はコンテナ名とホスト側 SSH ポートを対話的に尋ねる。
+
+```
+コンテナ名を入力してください [zenimoto_working_nixos_container]:
+ホスト側 SSH ポート番号を入力してください [2223]:
+```
+
+- そのまま Enter を押すと `[...]` の既定値を使う。既定値が既に使われている場合は、
+  空いている候補（`..._2`、次の空きポート）が既定値として提示される
+- 入力した名前が既存コンテナ（停止中も含む）と重複する場合、または入力したポートが
+  既に LISTEN 中の場合は、その旨を表示して入力し直しを求める
+- 尋ねずに起動したいときは値を明示するか `NO_PROMPT=1` を付ける:
+
+```bash
+make run SSH_PORT=3333            # ポートは尋ねない
+make run CONTAINER_NAME=foo       # 名前は尋ねない
+make run NO_PROMPT=1              # 何も尋ねない（CI などの非対話環境向け）
+```
+
+既定以外の名前 / ポートで起動したコンテナを操作するときは、`shell` / `ssh` / `stop` /
+`rm` / `switch` / `logs` / `restart` にも同じ変数を渡す:
+
+```bash
+make shell CONTAINER_NAME=foo
+make ssh   SSH_PORT=3333
+```
+
 `-d` でバックグラウンド起動し、`sshd -D` が常駐するため、ホスト側から
 **いつでも SSH 接続できる状態が維持される**。`--restart unless-stopped` を付けているので
 Docker / ホスト再起動後も自動復帰する。
