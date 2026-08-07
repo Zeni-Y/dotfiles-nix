@@ -24,7 +24,9 @@
 #                      （shell / ssh / stop / rm / switch / logs / restart 共通）
 #   make switch      - コンテナ内の dotfiles を再適用（home-manager switch）
 #   make logs        - sshd のログを表示
-#   make gpu-test    - GPU 動作確認
+#   make gpu-test    - ホストの nvidia-container-toolkit 動作確認 (ubuntu イメージ)
+#   make gpu-test-image
+#                    - ビルドしたイメージ内で nvidia-smi が動くか確認
 #   make restart     - コンテナを再起動
 #   make stop / rm   - コンテナの停止 / 削除
 #   make clean       - コンテナとイメージを削除
@@ -73,7 +75,7 @@ else
   ASK_PORT := yes
 endif
 
-.PHONY: build run shell ssh switch logs gpu-test clean restart stop rm
+.PHONY: build run shell ssh switch logs gpu-test gpu-test-image clean restart stop rm
 
 build:
 	docker build \
@@ -176,8 +178,19 @@ switch:
 logs:
 	docker logs -f "$(CONTAINER_NAME)"
 
+# ホスト側の nvidia-container-toolkit が生きているかの確認（FHS な Ubuntu で見る）
 gpu-test:
 	docker run --init --gpus all --rm ubuntu:22.04 nvidia-smi
+
+# ビルドしたイメージの中で nvidia-smi が動くかの確認。
+# nixos/nix は非 FHS なので、Dockerfile で /lib64 の loader を張っていないと
+# "Check the interpreter or linker?" で落ちる。
+# ENTRYPOINT は sshd を上げてしまうので --entrypoint で潰す。
+gpu-test-image:
+	docker run --init --gpus all --rm \
+		--entrypoint /nix/var/nix/profiles/default/bin/bash \
+		"$(IMAGE_NAME)" -lc \
+		'nvidia-smi && echo "--- injected libs ---" && ls -l /usr/lib/x86_64-linux-gnu/libcuda.so.1 /usr/lib64/libcuda.so.1 2>/dev/null'
 
 stop:
 	docker stop "$(CONTAINER_NAME)"

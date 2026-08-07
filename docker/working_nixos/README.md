@@ -42,7 +42,7 @@
 
 | ファイル        | 役割                                                                     |
 | --------------- | ------------------------------------------------------------------------ |
-| `Dockerfile`    | nixos/nix + システムツール + ユーザー + sshd 設定 + dotfiles の焼き込み  |
+| `Dockerfile`    | nixos/nix + システムツール + ユーザー + sshd 設定 + dotfiles + GPU 対応  |
 | `entrypoint.sh` | nix-daemon 起動 → ホスト鍵生成 → `authorized_keys` 取得 → `sshd` 前面実行 |
 | `Makefile`      | build / run / switch / clean 等のタスク定義                              |
 
@@ -169,8 +169,18 @@ make stop       # 停止
 ### GPU 動作確認
 
 ```bash
-make gpu-test
+make gpu-test        # ホストの nvidia-container-toolkit が生きているか（ubuntu イメージで確認）
+make gpu-test-image  # このイメージの中で nvidia-smi が動くか
 ```
+
+`make gpu-test` は通るのに `make gpu-test-image` が
+
+```
+exec: Failed to execute process '/usr/bin/nvidia-smi':
+      The file exists and is executable. Check the interpreter or linker?
+```
+
+で落ちる場合は、下の「[GPU（非 FHS 環境でのドライバ注入）](#gpu非-fhs-環境でのドライバ注入)」を参照。
 
 ## 仕組みの補足
 
@@ -210,6 +220,47 @@ make gpu-test
   `/nix/var/nix/profiles/default/bin/bash` を書く（store のハッシュ付きパスを
   直接書くと、更新のたびにログインできなくなる）
 
+### GPU（非 FHS 環境でのドライバ注入）
+
+`--gpus all` を付けると nvidia-container-toolkit が **ホスト側の**
+`nvidia-smi` とドライバライブラリ（`libcuda.so.1` / `libnvidia-ml.so.1` …）を
+コンテナに bind mount する。これらはホストの distro でビルドされた FHS 前提の
+バイナリなので、素の `nixos/nix` では次の 2 つが問題になる。
+
+1. **ELF インタプリタが無い**
+   注入された `/usr/bin/nvidia-smi` は `/lib64/ld-linux-x86-64.so.2` を
+   要求するが、非 FHS の `nixos/nix` にそれは無い。`execve` が `ENOENT` を返し、
+   fish が
+
+   ```
+   exec: Failed to execute process '/usr/bin/nvidia-smi':
+         The file exists and is executable. Check the interpreter or linker?
+   ```
+
+   と表示する（「ファイルはあって実行権もあるのに exec できない」＝ loader が無い、
+   という意味のメッセージ）。Dockerfile で nixpkgs の glibc の `ld.so` を
+   `/lib64/ld-linux-x86-64.so.2` に張って解決している
+
+2. **`/etc/ld.so.cache` が効かない**
+   nixpkgs の glibc は `dont-use-system-ld-so-cache.patch` により
+   `/etc/ld.so.cache` を読まない（自身の store パス配下の cache だけを見る）。
+   toolkit が `ldconfig` で作るキャッシュが無視されるため、`nvidia-smi` が
+   `dlopen` する `libnvidia-ml.so.1` を自力では見つけられない。
+   `LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/lib64` を
+   イメージの `ENV` と `sshd_config` の `SetEnv` の両方に入れている
+   （このコンテナの `/usr/lib*` には注入されたドライバ以外は何も無いので、
+   Nix 側のライブラリを食う心配はない）
+
+加えて `NVIDIA_DRIVER_CAPABILITIES=compute,utility` を焼いている。これが無いと
+toolkit は `utility`（= `nvidia-smi` と `libnvidia-ml`）しか注入せず、
+`libcuda.so.1` が来ないので CUDA が動かない。`nvidia/cuda` 系イメージ
+（`docker/working` のベース）はこれを最初から持っている。
+
+ドライバのバージョンはホストのカーネルモジュールと一致している必要がある。
+`nix profile install nixpkgs#linuxPackages.nvidia_x11` のように Nix 側から
+入れ直すのは、ホストと版がズレると `Failed to initialize NVML: Driver/library
+version mismatch` になるので避けること。
+
 ## 注意点
 
 - `apt` は無い。システムに何か足したいときは `sudo nix profile install nixpkgs#<pkg>`
@@ -218,6 +269,8 @@ make gpu-test
   ユーザープロファイル世代はイメージのものに戻る
 - `~/ghq` と `~/.cache` はホストからマウントされる（`docker/working` と同じ）。
   `$HOME` 全体は `/home/$USER/host` にマウントされる
-- GPU は `--gpus all` で渡るが、nvidia-container-toolkit が注入するドライバは
-  `/usr/lib64` などを前提にしている。CUDA を使うワークロードでは
-  `docker/working`（Ubuntu ベース）の方が素直に動くことがある
+- GPU は `--gpus all` で渡る。nvidia-container-toolkit が注入するのは FHS 前提の
+  ホストバイナリなので、`/lib64` の loader と `LD_LIBRARY_PATH` を Dockerfile で
+  補っている（[仕組みの補足](#gpu非-fhs-環境でのドライバ注入)）。
+  それでも CUDA まわりで詰まるようなら、`docker/working`（`nvidia/cuda` ベース）の方が
+  素直に動くことがある
