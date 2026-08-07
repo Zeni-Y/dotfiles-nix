@@ -31,6 +31,11 @@ ARG HM_CONFIG=${USERNAME}@ubuntu
 # (TZDIR が渡らない場面で TZ が POSIX 形式の文字列と解釈され UTC になる)。
 # TZ 未設定なら glibc は /etc/localtime を読むので、そちらに寄せる。
 ARG TZ=Asia/Tokyo
+# nvidia-container-toolkit (`--gpus all`) がホストのドライバライブラリを
+# 注入する先。ディストリによって差があるので両方見る。
+# libcuda.so.1 / libnvidia-ml.so.1 はここに置かれるが、nixpkgs の glibc は
+# /etc/ld.so.cache を読まない (後述) ので LD_LIBRARY_PATH で拾う必要がある。
+ARG NVIDIA_LIB_PATH=/usr/lib/x86_64-linux-gnu:/usr/lib64
 
 ENV LANG=en_US.UTF-8 \
     # ベースイメージが USER=root を持っている。Docker の `USER` 命令や
@@ -177,7 +182,7 @@ RUN mkdir -p /etc/ssh && printf '%s\n' \
         'X11Forwarding no' \
         'PrintMotd no' \
         'AcceptEnv LANG LC_*' \
-        "SetEnv PATH=/home/${USERNAME}/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin LANG=${LANG} TZDIR=${TZDIR}" \
+        "SetEnv PATH=/home/${USERNAME}/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin LANG=${LANG} TZDIR=${TZDIR} LD_LIBRARY_PATH=${NVIDIA_LIB_PATH}" \
         'Subsystem sftp /nix/var/nix/profiles/default/libexec/sftp-server' \
         > /etc/ssh/sshd_config
 
@@ -202,6 +207,42 @@ RUN set -eu; \
             "$out"/activate \
         '; \
     nix store gc --quiet 2>/dev/null || true
+
+# ─── NVIDIA GPU (nvidia-container-toolkit) 対応 ──────────────
+# `--gpus all` を付けると nvidia-container-toolkit が **ホスト側の**
+# nvidia-smi と libcuda.so.1 / libnvidia-ml.so.1 をコンテナに bind mount する。
+# これらはホストの distro (Ubuntu 等) でビルドされた FHS 前提のバイナリで、
+# ELF インタプリタとして /lib64/ld-linux-x86-64.so.2 を要求する。
+# nixos/nix には FHS の loader が無いので execve が ENOENT を返し、
+#   exec: Failed to execute process '/usr/bin/nvidia-smi':
+#         The file exists and is executable. Check the interpreter or linker?
+# (fish の ENOENT メッセージ) になる。nixpkgs の glibc の ld.so を
+# FHS のパスに張って解決する。
+#
+# 併せて LD_LIBRARY_PATH も要る。nixpkgs の glibc は
+# dont-use-system-ld-so-cache.patch により /etc/ld.so.cache ではなく
+# 自身の store パス配下の cache しか読まないため、toolkit が ldconfig で
+# 作る /etc/ld.so.cache が効かず、dlopen される libnvidia-ml.so.1 /
+# libcuda.so.1 を自力では見つけられない。
+# (このコンテナの /usr/lib* には注入されたドライバ以外は何も無いので、
+#  LD_LIBRARY_PATH に足しても Nix 側のライブラリを食う心配はない)
+RUN set -eu; \
+    nix build --inputs-from /etc/nix-inputs \
+        --out-link /nix/var/nix/gcroots/glibc 'nixpkgs#glibc^out'; \
+    GLIBC=$(readlink -f /nix/var/nix/gcroots/glibc); \
+    case "$(uname -m)" in \
+        x86_64)  loader=ld-linux-x86-64.so.2;  dir=/lib64;; \
+        aarch64) loader=ld-linux-aarch64.so.1; dir=/lib;;   \
+        *) echo "unsupported arch: $(uname -m)" >&2; exit 1;; \
+    esac; \
+    mkdir -p "$dir"; \
+    ln -snf "${GLIBC}/lib/${loader}" "${dir}/${loader}"
+
+# NVIDIA_DRIVER_CAPABILITIES を立てないと toolkit は utility (nvidia-smi と
+# libnvidia-ml) しか注入せず、libcuda.so.1 が来ないので CUDA が動かない。
+# nvidia/cuda 系イメージ (docker/working のベース) はこれを焼いている。
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    LD_LIBRARY_PATH=${NVIDIA_LIB_PATH}
 
 # ─── 起動 ────────────────────────────────────────────────────
 # nix-daemon を上げ、GitHub から authorized_keys を取り、sshd を foreground 実行する。
