@@ -27,8 +27,9 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 3. [前提ソフトウェアのインストール](#前提ソフトウェアのインストール)
 4. [初回セットアップ](#初回セットアップ)
 5. [日々の運用](#日々の運用)
-6. [カスタマイズの勘どころ](#カスタマイズの勘どころ)
-7. [既知のハマりどころ](#既知のハマりどころ)
+6. [エディタ (Neovim + LazyVim)](#エディタ-neovim--lazyvim)
+7. [カスタマイズの勘どころ](#カスタマイズの勘どころ)
+8. [既知のハマりどころ](#既知のハマりどころ)
 
 ---
 
@@ -39,7 +40,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト) |
 | Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
 | ターミナル | tmux (prefix `C-t`, resurrect/continuum, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
-| エディタ | Neovim (defaultEditor) |
+| エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi / ghq |
 
 ---
@@ -66,7 +67,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │   │   └── fish.nix         #     fish + plugins (autopair/sponge/fzf.fish/pure) + alias
 │   ├── editors/             #   エディタ
 │   │   ├── default.nix
-│   │   └── neovim.nix
+│   │   └── neovim.nix       #     Neovim 本体 + LazyVim starter の初回取得
 │   └── cli/                 #   シェル統合が必要な CLI ツール
 │       ├── default.nix
 │       ├── bat.nix
@@ -229,8 +230,77 @@ home-manager generations
 
 ---
 
+## エディタ (Neovim + LazyVim)
+
+ターミナル内で VS Code 相当の操作感 (左にファイルツリー / 右で split 編集 /
+git ペイン) を得るために、Neovim に [LazyVim](https://www.lazyvim.org/) を載せている。
+
+| VS Code | LazyVim |
+| --- | --- |
+| エクスプローラー | `neo-tree` (`<leader>e`) |
+| エディタ split | `<C-w>v` / `<C-w>s`、移動は `<C-w>hjkl` |
+| 開いているファイルのタブ | `bufferline` (`<S-h>` / `<S-l>`) |
+| ソース管理パネル | `lazygit` を全画面起動 (`<leader>gg`)、行差分は `gitsigns` |
+| Ctrl+P / Ctrl+Shift+F | `telescope` (`<leader>ff` / `<leader>/`) |
+| IntelliSense | `nvim-lspconfig` + `blink.cmp` + `mason` |
+| 統合ターミナル | `<C-/>` |
+
+`<leader>` は Space。`<leader>` を押して少し待てば which-key がキー一覧を出す。
+
+### 管理の分担
+
+**プラグインとエディタ設定は Nix で管理しない。** `home/editors/neovim.nix` が
+持つのは「Neovim 本体」と「LazyVim が要求する外部コマンド」だけで、
+`~/.config/nvim` は Nix 管理外の**実ディレクトリ**として扱う。
+
+理由は `programs.neovim` (Home Manager のモジュール) が
+`~/.config/nvim/init.lua` を Nix store 上に生成して symlink するため:
+
+- LazyVim starter が置く `init.lua` と衝突する
+- `lazy-lock.json` のように Neovim 自身が書き込むファイルを置けない
+  (symlink 先が read-only な Nix store になる)
+
+そのため `programs.neovim` は使わず `home.packages = [ pkgs.neovim ]` にしてある。
+代わりに失われる `defaultEditor` / `viAlias` / `vimAlias` は、
+`home.sessionVariables.EDITOR` と fish/bash の `shellAliases` で補っている
+(alias なのでスクリプト中の `vim ...` はシステムの vim に落ちる点だけ注意)。
+
+### 初回セットアップ
+
+`home-manager switch` の activation が、**`~/.config/nvim` が存在しないときだけ**
+LazyVim starter を clone する (`.git` は削除するので、そのまま自分の設定として
+書き換えていける)。2 回目以降の switch は中身に一切触らない。
+
+ネットワークが無い環境では警告を出して続行するので、後から手動で:
+
+```bash
+git clone --depth 1 https://github.com/LazyVim/starter ~/.config/nvim
+rm -rf ~/.config/nvim/.git
+```
+
+初回 `nvim` 起動時にプラグインが自動インストールされる。終わったら
+`:checkhealth lazyvim` で外部コマンドの不足を確認できる。
+
+### 設定を変えたいとき
+
+| やりたいこと | 触るファイル |
+| --- | --- |
+| オプション (行番号・インデント等) | `~/.config/nvim/lua/config/options.lua` |
+| キーマップ | `~/.config/nvim/lua/config/keymaps.lua` |
+| プラグイン追加・上書き | `~/.config/nvim/lua/plugins/*.lua` |
+| LazyVim の Extra (言語サポート等) を有効化 | `:LazyExtras` |
+| プラグインの更新 | `:Lazy update` (`lazy-lock.json` に固定される) |
+
+`~/.config/nvim` ごと別リポジトリで管理したい場合は、そこで `git init` して
+push すればよい。この dotfiles 側は「無ければ starter を置く」以上のことをしない。
+
+---
+
 ## カスタマイズの勘どころ
 
+- **エディタの設定を変えたい** → `~/.config/nvim/lua/` 配下 (Nix 管理外)。
+  `home/editors/neovim.nix` は本体と外部コマンドだけを見る。
+  詳細は [エディタ (Neovim + LazyVim)](#エディタ-neovim--lazyvim) を参照。
 - **新しい CLI ツールを足したい** → `home/packages.nix` の `home.packages` に追加。
   シェル統合が必要なものは `home/cli/<name>.nix` を作って `home/cli/default.nix` で imports する。
 - **fish のプラグインを足したい** → `home/shell/fish.nix` の `plugins` に
@@ -270,6 +340,12 @@ home-manager generations
   が出るのは daemon が落ちているサイン。`~/.bashrc` に
   `pgrep -x nix-daemon || sudo /nix/var/nix/profiles/default/bin/nix-daemon &` を
   仕込んでおくと毎回手で叩かなくて済む。
+- **`~/.config/nvim` は Home Manager の管理下に無い**。`home-manager switch` を
+  やり直しても、世代を切り戻しても、Neovim の設定とプラグインは元に戻らない。
+  意図的にそうしている (理由は [エディタの節](#エディタ-neovim--lazyvim)) ので、
+  設定を残したいなら `~/.config/nvim` 自体を別リポジトリで管理すること。
+  作り直したいときは `rm -rf ~/.config/nvim ~/.local/share/nvim ~/.local/state/nvim`
+  してから `home-manager switch` すれば starter を取り直す。
 - **`pkgs.fishPlugins` にないプラグイン**を使いたい場合は `fetchFromGitHub` で src を固定する
   (詳細は `home/shell/fish.nix` のコメント参照)。
 - **fish_plugins (fisher)** をリポジトリに残しても Nix 管理下では機能しないので消して良い。
