@@ -1,14 +1,19 @@
 # Docker 開発環境
 
-SSH でアクセスできる Ubuntu 開発コンテナ。dotfiles は **Nix (Flakes + Home Manager)** で
-セットアップする。イメージには Nix を焼き込まず、**コンテナに入ってから**
-`scripts/setup.sh` と `home-manager switch` を実行する。
+SSH でアクセスできる Ubuntu 開発コンテナ。**Nix (Flakes + Home Manager) と dotfiles を
+イメージに焼き込む**ので、コンテナを起動した時点で fish / neovim / claude-code などが
+揃っている。コンテナを作り直しても中でのセットアップ作業は不要。
 
 ## 設計方針
 
 - **ベースイメージ**: `ubuntu:24.04`（CUDA イメージ不要。PyTorch は pip 同梱の CUDA ランタイムを使用）
-- **dotfiles 展開**: コンテナ起動後に手動で Nix を入れ、Home Manager を適用する
-  （イメージビルド時には何もしない。ビルドを軽く保ち、flake の更新をイメージ再ビルドなしで取り込める）
+- **パッケージは可能な限り Nix で管理する**。apt で入れるのは Nix より前に必要なもの
+  （`ca-certificates` / `curl`）、setuid が要るもの（`sudo`）、root のシステムサービス
+  （`openssh-server`）、glibc のロケール生成（`locales`）の4種類だけ。
+  開発用ツールは `home/packages.nix` ほかで Nix 管理する
+- **dotfiles 展開**: イメージビルド時に Home Manager の activation まで済ませる
+  （`docker/working_nixos` と同じ方針）。flake だけ更新したいときは `make switch`
+- **systemd は無い**ので、`nix-daemon` は `entrypoint.sh` が起動する
 - **SSH 鍵管理**: SSH agent forwarding を利用。秘密鍵はコンテナに配置しない。
   `authorized_keys` は起動時に `entrypoint.sh` が `https://github.com/<GITHUB_USER>.keys` から取得する
 - **ユーザー名**: コンテナ内のユーザー名は `flake.nix` の `userInfo.username`（既定 `zenimoto`）と
@@ -16,11 +21,12 @@ SSH でアクセスできる Ubuntu 開発コンテナ。dotfiles は **Nix (Fla
 
 ## ファイル構成
 
-| ファイル        | 役割                                                        |
-| --------------- | ----------------------------------------------------------- |
-| `Dockerfile`    | ubuntu ベースイメージ + 最小パッケージ + SSH 設定           |
-| `entrypoint.sh` | GitHub から `authorized_keys` を取得して `sshd` を foreground 実行 |
-| `Makefile`      | build / run / clean 等のタスク定義                          |
+| ファイル             | 役割                                                                       |
+| -------------------- | -------------------------------------------------------------------------- |
+| `Dockerfile`         | ubuntu + 最小 apt + SSH 設定 + Nix のインストール + dotfiles の焼き込み    |
+| `bake-dotfiles.sh`   | ビルド時に `nix-daemon` を上げてユーザー権限で Home Manager を適用する     |
+| `entrypoint.sh`      | `nix-daemon` 起動 → `authorized_keys` 取得 → `sshd` 前面実行               |
+| `Makefile`           | build / run / switch / clean 等のタスク定義                                |
 
 ## セットアップ手順
 
@@ -32,6 +38,20 @@ make build
 ```
 
 `$USER_working_image` という名前のイメージが作成される。`--build-arg` でホストの UID/GID を引き継ぐため、マウントしたファイルの権限問題が起きない。
+
+ビルドは Nix のインストールと Home Manager の適用まで走るので、**初回は数十分**かかる
+（バイナリキャッシュに無いものはローカルでビルドされる）。2 回目以降は Docker の
+レイヤキャッシュが効き、`home/` 以下を触ったときだけ dotfiles のレイヤが作り直される。
+`flake.lock` を触っていなければ nixpkgs の再取得も起きない。
+
+Dockerfile 自体をいじっていて素早く回したいときは、dotfiles の焼き込みを飛ばせる:
+
+```bash
+make build BAKE_DOTFILES=0   # 数分で終わる。Nix は入るが dotfiles は未適用
+```
+
+ビルドコンテキストはリポジトリルート（`Makefile` が `-f` 付きで `../..` を渡す）。
+dotfiles をイメージに取り込むためで、`make build` を使う限り意識しなくてよい。
 
 コンテナ内のユーザー名は既定でホストの `$USER` を引き継ぐ。`flake.nix` の
 `userInfo.username` と違う場合は `USERNAME` を明示する:
@@ -88,44 +108,51 @@ bash で直接入る（`exit` してもコンテナは停止しない）:
 make shell
 ```
 
-### dotfiles (Nix + Home Manager) のセットアップ
+### dotfiles (Nix + Home Manager) の更新
 
-初回のみ `make shell` で入って Nix を入れ、Home Manager を適用する。
-イメージには Nix が入っていないので、**この手順はコンテナの中で実行する**。
+**セットアップ作業は不要**。Nix も dotfiles もイメージに焼き込んであるので、
+`make run` した時点で fish / neovim / claude-code などが使える。
+コンテナを作り直しても `/nix` はイメージ側にあるため、やり直しは発生しない。
+
+flake や `home/` 以下を更新したときの反映方法は2通り:
 
 ```bash
-make shell   # コンテナ内へ
+# A. コンテナ内のリポジトリから再適用する（速い。イメージは古いまま）
+make switch
 
-# 1. リポジトリを取得する
-#    ~/ghq はホストからマウントされているので、ホスト側に既に clone 済みなら
-#    その場所をそのまま使えばよい（改めて clone する必要はない）
-git clone https://github.com/Zeni-Y/dotfiles-nix.git ~/dotfiles-nix
-cd ~/dotfiles-nix
-
-# 2. Nix をインストールする（Determinate Nix Installer）
-#    コンテナには systemd が無いので setup.sh は自動で
-#    `linux --init none` プランに切り替わり、~/.bashrc に
-#    nix-daemon の起動スニペットを追記する
-./scripts/setup.sh
-
-# 3. 新しいシェルに切り替えて PATH と nix-daemon を有効にする
-exec bash
-
-# 4. Home Manager を適用する（初回は必ず -b backup を付ける）
-nix run home-manager/master -- switch -b backup --flake '.#zenimoto@ubuntu'
-
-# 5. 以降は PATH に入った home-manager を直接使う
-home-manager switch --flake '.#zenimoto@ubuntu'
+# B. イメージごと作り直す（イメージも最新になる）
+make build && make rm && make run
 ```
 
-`-b backup` の意味や 2 回目以降の注意点は
-[トップ README](../../README.md#-b-backup-の挙動) を参照。
+`make switch` はイメージに焼き込んだ `/home/$USER/dotfiles-nix` を使う。
+ホストの `~/ghq` に clone 済みのものを使いたいときは:
+
+```bash
+make switch REPO=/home/$USER/ghq/github.com/Zeni-Y/dotfiles-nix
+```
+
 Nix / Home Manager 周りのエラーは
 [docker/debug/README.md の「よくあるエラーと対処」](../debug/README.md#よくあるエラーと対処) にまとまっている。
 
-コンテナを作り直すと `/nix` も消えるので、この手順は再実行が必要になる。
-`~/ghq` や `~/.cache` はホストからマウントされているため、
-clone とビルドキャッシュ（Nix store は含まない）は残る。
+なお `scripts/setup.sh` はコンテナでは使わない（イメージビルド時に
+Determinate Nix Installer を `linux --init none` プランで実行済み）。
+生の Ubuntu マシンに Nix を入れるときのスクリプトとして残してある。
+
+### パッケージを足したいとき
+
+**まず `home/packages.nix` に足して `make switch`** を試す。apt は
+「Nix に無い」「FHS 前提のシステムライブラリが要る」場合の逃げ道として使う:
+
+```bash
+sudo apt-get update && sudo apt-get install -y <package>
+```
+
+apt で入れたものはコンテナを作り直すと消えるので、常用するなら
+`home/packages.nix` に移すか、`Dockerfile` の apt 行に足すこと。
+
+C 拡張のビルドで詰まる場合、まず Nix 側の `gcc` / `pkg-config`
+（`home/packages.nix`）が使われているか確認する。システムヘッダとの
+組み合わせが必要なら `sudo apt-get install build-essential` が確実。
 
 ### SSH 接続
 

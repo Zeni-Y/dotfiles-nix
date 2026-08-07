@@ -1,7 +1,9 @@
 # Docker 開発環境の管理
 #
 # 使い方:
-#   make build       - イメージをビルド
+#   make build       - イメージをビルド（Nix と dotfiles の適用まで含む / 初回は数十分）
+#   make build BAKE_DOTFILES=0
+#                    - dotfiles の焼き込みを飛ばして数分でビルド
 #   make run         - コンテナ名と SSH ポートを対話的に尋ねてから起動
 #                      （既に使われている名前 / ポートなら、その旨を表示して聞き直す）
 #   make run SSH_PORT=3333  - SSH ポートを指定して起動（ポートは尋ねない）
@@ -16,7 +18,8 @@
 #   make ssh         - SSH agent forwarding 付きで SSH ログイン
 #   make shell CONTAINER_NAME=foo / make ssh SSH_PORT=3333
 #                    - 既定以外の名前 / ポートで起動したコンテナを操作する
-#                      （shell / ssh / stop / rm / logs / restart 共通）
+#                      （shell / ssh / stop / rm / switch / logs / restart 共通）
+#   make switch      - コンテナ内の dotfiles を再適用（home-manager switch）
 #   make logs        - sshd のログを表示
 #   make gpu-test    - GPU 動作確認
 #   make restart     - コンテナを再起動
@@ -31,8 +34,16 @@ SSH_PORT ?= 2222
 # /home/<username> を前提にするので、flake.nix の userInfo.username と
 # 揃える必要がある。既定ではホストの $USER をそのまま引き継ぐ。
 USERNAME ?= $(USER)
+# 適用する homeConfigurations の名前
+HM_CONFIG ?= $(USERNAME)@ubuntu
 # コンテナ起動時に https://github.com/$(GITHUB_USER).keys から authorized_keys を取得する
 GITHUB_USER ?= Zeni-Y
+# 0 にすると dotfiles の焼き込みを飛ばして数分でビルドする
+BAKE_DOTFILES ?= 1
+
+# この Makefile は docker/working/ にあるので 2 階層上がリポジトリルート。
+# dotfiles をイメージに焼き込むため、ビルドコンテキストはリポジトリ全体になる。
+REPO_ROOT := $(CURDIR)/../..
 
 # NVIDIA GPU が利用可能なときだけ --gpus all を付ける
 GPU_FLAG := $(shell nvidia-smi >/dev/null 2>&1 && echo --gpus all)
@@ -59,15 +70,18 @@ else
   ASK_PORT := yes
 endif
 
-.PHONY: build run shell ssh logs gpu-test clean restart stop rm
+.PHONY: build run shell ssh switch logs gpu-test clean restart stop rm
 
 build:
 	docker build \
+		-f "$(CURDIR)/Dockerfile" \
 		--build-arg USERNAME="$(USERNAME)" \
 		--build-arg USER_UID="$$(id -u)" \
 		--build-arg USER_GID="$$(id -g)" \
 		--build-arg GITHUB_USER="$(GITHUB_USER)" \
-		./ -t "$(IMAGE_NAME)"
+		--build-arg HM_CONFIG="$(HM_CONFIG)" \
+		--build-arg BAKE_DOTFILES="$(BAKE_DOTFILES)" \
+		"$(REPO_ROOT)" -t "$(IMAGE_NAME)"
 
 run:
 	docker network inspect zenimoto >/dev/null 2>&1 || docker network create zenimoto
@@ -148,6 +162,14 @@ shell:
 
 ssh:
 	ssh -A -p "$(SSH_PORT)" "$(USERNAME)@localhost"
+
+# イメージに焼き込んだ dotfiles を、コンテナ内のリポジトリから再適用する。
+# ホストの ~/ghq に clone 済みのものを使いたいときは
+#   make switch REPO=/home/$(USERNAME)/ghq/github.com/Zeni-Y/dotfiles-nix
+REPO ?= /home/$(USERNAME)/dotfiles-nix
+switch:
+	docker exec -it -u "$(USERNAME)" -w "$(REPO)" "$(CONTAINER_NAME)" \
+		bash -lc 'home-manager switch --flake ".#$(HM_CONFIG)"'
 
 logs:
 	docker logs -f "$(CONTAINER_NAME)"
