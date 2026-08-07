@@ -81,7 +81,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │
 └── docker/                  # Docker 上の検証環境 / 開発環境
     ├── debug/               #   素の Ubuntu で setup.sh を検証する箱
-    └── working/             #   SSH で入る常駐開発コンテナ
+    ├── working/             #   SSH で入る常駐開発コンテナ (ubuntu:24.04 ベース)
+    └── working_nixos/       #   同上の nixos/nix ベース版 (dotfiles 焼き込み済み)
 ```
 
 設計の指針:
