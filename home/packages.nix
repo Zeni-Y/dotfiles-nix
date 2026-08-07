@@ -35,6 +35,13 @@
     # Git 以外の VCS / インフラ
     gnumake
 
+    # C ツールチェイン。
+    # ネイティブ拡張を持つ Python パッケージを wheel 無しで入れる場合など、
+    # ビルドが必要になる場面のために最小限だけ持っておく。
+    # (docker/working では apt の build-essential を廃止してこちらに寄せた)
+    gcc
+    pkg-config
+
     # シェルスクリプト品質
     shellcheck
     shfmt
