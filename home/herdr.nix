@@ -107,27 +107,19 @@
     end
   '';
 
-  # 起動・再アタッチを短く打てるようにする短縮エイリアス。
-  # fish の alias は $argv を後ろに継ぐ関数になるので、
-  # `hd session list` や `hd --session work` もそのまま通る。
-  #
-  # bash は対話なら fish に exec する (home/shell/bash.nix) ため
-  # 実質 fish 側しか使われないが、exec に至らない経路のために揃えておく。
+  # 起動・再アタッチを短く打てるようにする短縮入力。
+  # `hd` も alias ではなく abbr にする。履歴とプロンプトに展開後の
+  # `herdr ...` が残り、展開してからオプションを足せるため (docs/fish-abbr.md 2 章)。
   # `hd` という名前のコマンドは PATH 上に存在しない (hexdump の hd は
   # bsdmainutils 由来で、この環境には入っていない) ので衝突しない。
-  programs.fish.shellAliases = {
-    hd = "herdr";
-  };
-  programs.bash.shellAliases = {
-    hd = "herdr";
-  };
-
-  # よく使うサブコマンドの短縮入力。
+  # bash には abbr に相当する仕組みが無いが、対話 bash は fish に exec する
+  # (home/shell/bash.nix) ので bash 側には何も置かない。
+  #
   # nixpkgs の herdr は clap 生成の fish 補完を同梱しているので、
-  # `herdr <Tab>` / `hd <Tab>` の候補出しは何もしなくても効く。
+  # 展開後の `herdr <Tab>` の候補出しは何もしなくても効く。
   # ここに置くのは「補完で辿るより打った方が速い」定型だけ。
-  # abbr を選ぶ理由は home/git.nix の同じブロックのコメントを参照。
   programs.fish.shellAbbrs = {
+    hd = "herdr";
     hdl = "herdr session list";
     hda = "herdr session attach";
 
