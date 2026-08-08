@@ -66,6 +66,15 @@
         # 復元時にエージェントのセッションも再開する。
         resume_agents_on_restore = true;
       };
+
+      experimental = {
+        # Kitty graphics protocol のペイン内描画 (herdr 0.7.5 では実験的機能)。
+        # ペインの中のプログラムが送った画像を、アタッチ中のクライアント経由で
+        # 外側のターミナルに転送して描画する。外側のターミナル側の対応も必要で、
+        # WezTerm は enable_kitty_graphics = true (home/wezterm.nix) とセットで
+        # 初めて表示される (2026-08-08 に赤い矩形の描画テストで確認済み)。
+        kitty_graphics = true;
+      };
     };
   };
 

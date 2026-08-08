@@ -35,6 +35,12 @@
       -- スクロールバック
       config.scrollback_lines = 10000
 
+      -- Kitty graphics protocol (デフォルト false)。
+      -- SSH 先の herdr ペイン内から手元の WezTerm に画像を描画するために必要で、
+      -- herdr 側の experimental.kitty_graphics (home/herdr.nix) とセットで動く
+      -- (2026-08-08 に赤い矩形の描画テストで確認済み)。
+      config.enable_kitty_graphics = true
+
       -- リーダーキー
       config.leader = { key = 'w', mods = 'CTRL', timeout_milliseconds = 1500 }
 
