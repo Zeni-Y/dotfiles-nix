@@ -11,6 +11,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 - **対象 OS は Linux のみ**。Docker コンテナ内での利用も想定します。
   macOS (nix-darwin / Homebrew) は対象外です。
+  Windows では **WSL2 の Ubuntu** を Linux 実機と同じ扱いで使えます
+  (手順は [docs/wsl2.md](docs/wsl2.md))。
 - **`sudo` が使えることが前提**。Nix は `/nix` にインストールする
   通常の (multi-user) 構成のみをサポートします。
 - **`nix-portable` は使いません**。`sudo` が使えない環境は考慮しないので、
@@ -21,6 +23,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 > | ドキュメント | 内容 |
 > | --- | --- |
 > | [docs/nix-concepts.md](docs/nix-concepts.md) | Nix の構文・概念・Home Manager のライフサイクル |
+> | [docs/wsl2.md](docs/wsl2.md) | Windows (WSL2) でのセットアップ手順・Docker との使い分け |
 > | [docs/herdr.md](docs/herdr.md) | herdr の使い方 (タブ / ペイン / workspace)・キーバインド・設定の反映フロー |
 > | [docs/lazyvim.md](docs/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
 > | [docs/fish-nix-path.md](docs/fish-nix-path.md) | fish に Nix の PATH が通る仕組み |
@@ -48,7 +51,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
 | ターミナル | [herdr](https://herdr.dev/) (prefix `C-q`, セッション永続化, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
 | エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
-| CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi / ghq |
+| CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi |
+| リポジトリ / worktree | ghq + gwq — clone も worktree も `~/ghq` に集約。`dev` で fzf 移動、`gwq add` / `gwq cd` は現在のシェルごと移動する ([docs/git-worktree.md](docs/git-worktree.md)) |
 
 日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は
 [docs/herdr.md](docs/herdr.md) と [docs/lazyvim.md](docs/lazyvim.md) にまとめている。
@@ -127,6 +131,9 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | `sudo` は使えるが `systemd` が無い (Docker コンテナなど) | `linux --init none` プランでインストール。`nix-daemon` の自動起動だけ諦め、代わりに `~/.bashrc` へ起動スニペットを追記する |
 | `sudo` が使えない | **サポート外**。エラーで停止する |
 
+WSL2 は既定で systemd が無効なので、そのまま実行すると 2 行目の経路になる。
+`/etc/wsl.conf` で有効にしてから実行すること (→ [docs/wsl2.md](docs/wsl2.md#3-systemd-を有効化する))。
+
 systemd の有無は自動判定するが、明示したい場合は:
 
 ```bash
@@ -159,6 +166,10 @@ Docker コンテナ内での利用は今後も想定するが、その場合も
 ---
 
 ## 初回セットアップ
+
+> **Windows の場合**: 先に [docs/wsl2.md](docs/wsl2.md) で WSL2 の Ubuntu を用意してください
+> (ユーザー名を `userInfo.username` に揃える・systemd を有効にする・リポジトリを
+> `~/ghq/github.com/Zeni-Y/dotfiles-nix` に置く)。その後は以下の手順に合流します。
 
 ```bash
 # 自分のフォークを clone する想定

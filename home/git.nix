@@ -111,6 +111,6 @@
     lg = "lazygit";
   };
 
-  # ghq の保存先
-  home.sessionVariables.GHQ_ROOT = "$HOME/ghq";
+  # ghq / gwq の設定 (GHQ_ROOT や dev 関数) は home/cli/ghq.nix・
+  # home/cli/gwq.nix にまとめてある。
 }

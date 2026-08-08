@@ -11,7 +11,13 @@ let
   # 後者は flake.nix の `homeConfigurations."${userInfo.username}@ubuntu"`
   # と一致させる必要がある。username は userInfo から流れてくるので
   # config 経由で拾い、ホスト側の "ubuntu" だけ直書きする。
-  flakeDir = "${config.home.homeDirectory}/ghq/dotfiles-nix";
+  #
+  # パスは ghq の標準レイアウト (<root>/<host>/<owner>/<repo>)。
+  # worktree を同じ root に集約するため (docs/git-worktree.md 7 章)、
+  # ここは host/owner を含んだ形でなければならない。
+  # GitHub の owner (Zeni-Y) は userInfo.username (zenimoto) と綴りが違うので
+  # config からは導けず、ホスト名の "ubuntu" と同様に直書きしている。
+  flakeDir = "${config.home.homeDirectory}/ghq/github.com/Zeni-Y/dotfiles-nix";
   flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
 in
 {
@@ -93,8 +99,9 @@ in
       set -gx VISUAL nvim
       set -gx LANG en_US.UTF-8
 
-      # ghq でクローンしたリポジトリ用
-      set -gx GHQ_ROOT $HOME/ghq
+      # GHQ_ROOT は home/cli/ghq.nix の home.sessionVariables で設定している。
+      # あちらは hm-session-vars.fish 経由で fish にも届くので、
+      # ここに書くと二重定義になる。
 
       # ─────────────────────────────────────────────────────
       # 暗すぎる文字色の底上げ (黒背景対策)
