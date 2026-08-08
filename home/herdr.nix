@@ -83,4 +83,18 @@
   programs.bash.shellAliases = {
     hd = "herdr";
   };
+
+  # よく使うサブコマンドの短縮入力。
+  # nixpkgs の herdr は clap 生成の fish 補完を同梱しているので、
+  # `herdr <Tab>` / `hd <Tab>` の候補出しは何もしなくても効く。
+  # ここに置くのは「補完で辿るより打った方が速い」定型だけ。
+  # abbr を選ぶ理由は home/git.nix の同じブロックのコメントを参照。
+  programs.fish.shellAbbrs = {
+    hdl = "herdr session list";
+    hda = "herdr session attach";
+
+    # 設定を足したあとに不明キーが無いか確かめる。
+    # docs/herdr.md でも「設定変更のたびに実行する」と書いているもの。
+    hdc = "herdr config check";
+  };
 }

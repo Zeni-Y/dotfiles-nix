@@ -4,8 +4,16 @@
 # プラグインは programs.fish.plugins で管理する。
 # これにより fisher は不要で、バージョンは flake.lock で固定される。
 # ─────────────────────────────────────────────────────────────
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
+let
+  # flake の場所と homeConfigurations のキー。
+  # 後者は flake.nix の `homeConfigurations."${userInfo.username}@ubuntu"`
+  # と一致させる必要がある。username は userInfo から流れてくるので
+  # config 経由で拾い、ホスト側の "ubuntu" だけ直書きする。
+  flakeDir = "${config.home.homeDirectory}/ghq/dotfiles-nix";
+  flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
+in
 {
   programs.fish = {
     enable = true;
@@ -49,6 +57,34 @@
       lt = "eza --tree --icons --level=2";
       cat = "bat";
       grep = "rg";
+    };
+
+    # ─────────────────────────────────────────────────────────
+    # dotfiles 管理まわりの短縮入力
+    #
+    # flake 構成では `--flake` を省略すると
+    # `~/.config/home-manager/home.nix` を探しに行って落ちるので、
+    # home-manager 系はどのサブコマンドでも毎回 --flake が要る。
+    # 手で打つには長すぎるうえ、間違えても分かりにくいので abbr にする。
+    #
+    # abbr は展開後に編集できるので、`-b backup` を足したい初回だけ
+    # 展開してから書き足す、といった使い方ができる
+    # (alias だとこれができない)。
+    #
+    # ツール固有の abbr は各モジュール側に置いている:
+    #   git    → home/git.nix
+    #   herdr  → home/herdr.nix
+    # ─────────────────────────────────────────────────────────
+    shellAbbrs = {
+      hms = "home-manager switch --flake ${flakeRef}";
+      hmn = "home-manager news --flake ${flakeRef}";
+      hmg = "home-manager generations --flake ${flakeRef}";
+
+      # flake の更新と、switch 前の評価チェック。
+      # nix flake check はビルドまでやると重いので --no-build を既定にする
+      # (README の確認手順と揃えている)。
+      nfc = "nix flake check --no-build ${flakeDir}";
+      nfu = "nix flake update --flake ${flakeDir}";
     };
 
     interactiveShellInit = ''

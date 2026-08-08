@@ -44,7 +44,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 | トピック | 中身 |
 | --- | --- |
-| シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト) |
+| シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト)・git / herdr / home-manager の短縮入力 ([abbreviation](docs/fish-abbr.md)) |
 | Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
 | ターミナル | [herdr](https://herdr.dev/) (prefix `C-q`, セッション永続化, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
 | エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
@@ -52,6 +52,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は
 [docs/herdr.md](docs/herdr.md) と [docs/lazyvim.md](docs/lazyvim.md) にまとめている。
+シェルの補完と短縮入力については [docs/fish-abbr.md](docs/fish-abbr.md)。
 
 ---
 
@@ -237,6 +238,10 @@ nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage
 home-manager generations
 /nix/store/...-home-manager-generation/activate   # 任意の世代に戻す
 ```
+
+上のコマンドには fish の短縮入力を用意している (`hms` / `nfu` / `nfc` / `hmg`)。
+展開後の完全なコマンドが表示されるので、`-b backup` のようなフラグは
+展開してから書き足せる。一覧と足し方は [docs/fish-abbr.md](docs/fish-abbr.md)。
 
 ---
 
