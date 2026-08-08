@@ -26,6 +26,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 > | [docs/wsl2.md](docs/wsl2.md) | Windows (WSL2) でのセットアップ手順・Docker との使い分け |
 > | [docs/herdr.md](docs/herdr.md) | herdr の使い方 (タブ / ペイン / workspace)・キーバインド・設定の反映フロー |
 > | [docs/lazyvim.md](docs/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
+> | [docs/claude-code.md](docs/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と Nix での配り方 |
 > | [docs/fish-nix-path.md](docs/fish-nix-path.md) | fish に Nix の PATH が通る仕組み |
 
 ---
@@ -53,6 +54,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi |
 | リポジトリ / worktree | ghq + gwq — clone も worktree も `~/ghq` に集約。`dev` で fzf 移動、`gwq add` / `gwq cd` は現在のシェルごと移動する ([docs/git-worktree.md](docs/git-worktree.md)) |
+| コーディングエージェント | Claude Code 本体と、全プロジェクト共通の指示 (`~/.claude/CLAUDE.md` / `~/.claude/rules/`) を宣言的に配布 ([docs/claude-code.md](docs/claude-code.md)) |
 
 日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は
 [docs/herdr.md](docs/herdr.md) と [docs/lazyvim.md](docs/lazyvim.md) にまとめている。
@@ -83,6 +85,10 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │   ├── editors/             #   エディタ
 │   │   ├── default.nix
 │   │   └── neovim.nix       #     Neovim 本体 + LazyVim starter の初回取得
+│   ├── claude-code/         #   Claude Code 本体 + 全プロジェクト共通の指示
+│   │   ├── default.nix
+│   │   ├── CLAUDE.md        #     → ~/.claude/CLAUDE.md
+│   │   └── rules/           #     → ~/.claude/rules/ (トピック別・パススコープ可)
 │   └── cli/                 #   シェル統合が必要な CLI ツール
 │       ├── default.nix
 │       ├── bat.nix
@@ -91,6 +97,9 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │       ├── zoxide.nix
 │       ├── direnv.nix
 │       └── gh.nix
+│
+├── CLAUDE.md                # このリポジトリ固有の作業ルール (Claude Code が読む)
+├── .claude/rules/           # 同上。触ったファイルに応じて読み込まれる細則
 │
 ├── scripts/
 │   └── setup.sh             # Nix のインストール (sudo 必須)
@@ -343,6 +352,11 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   (git ブランチ名・入力補完のゴースト表示など) に `brblack` を当てるため、
   黒背景だと沈む。そこだけ灰色系の実値に差し替えてある。
   fzf の分は `home/cli/fzf.nix` の `colors`。
+- **Claude Code に全プロジェクト共通の指示を足したい** → `home/claude-code/CLAUDE.md`
+  (方針) か `home/claude-code/rules/<topic>.md` (トピック別) に書いて `git add`。
+  switch すると `~/.claude/CLAUDE.md` と `~/.claude/rules/` に配られる。
+  リポジトリ固有の指示は各リポジトリの `CLAUDE.md` / `.claude/rules/` 側に置く。
+  詳細は [docs/claude-code.md](docs/claude-code.md)。
 - **マシンを増やしたい** → `hosts/<name>.nix` を作り、`flake.nix` の outputs に登録。
 
 ---
@@ -379,6 +393,11 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   設定を残したいなら `~/.config/nvim` 自体を別リポジトリで管理すること。
   作り直したいときは `rm -rf ~/.config/nvim ~/.local/share/nvim ~/.local/state/nvim`
   してから `home-manager switch` すれば starter を取り直す。
+- **`~/.claude/CLAUDE.md` と `~/.claude/rules/` は Nix store への symlink**なので、
+  その場で編集したり Claude Code の `#` で書き足したりはできない。共通ルールを直すときは
+  `home/claude-code/` 側を編集して `git add` → `home-manager switch`。
+  逆に `~/.claude/settings.json` と auto memory は Claude Code 自身が書くファイルなので
+  **意図的に Nix 管理外**にしてある ([docs/claude-code.md](docs/claude-code.md))。
 - **`herdr update` は使わない**。herdr の実体は Nix store 上の読み取り専用バイナリなので
   自己更新できない。バージョンは flake.lock で固定されているので、
   `nix flake update` → `home-manager switch` で上げる。
