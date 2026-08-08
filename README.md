@@ -16,7 +16,14 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 - **`nix-portable` は使いません**。`sudo` が使えない環境は考慮しないので、
   そのような環境ではシステム管理者に Nix のインストールを依頼してください。
 
-> **Nix の構文・概念・ライフサイクルを学びたい場合は [docs/nix-concepts.md](docs/nix-concepts.md) を参照してください。**
+> **補足資料は [docs/](docs/) にまとめています。**
+>
+> | ドキュメント | 内容 |
+> | --- | --- |
+> | [docs/nix-concepts.md](docs/nix-concepts.md) | Nix の構文・概念・Home Manager のライフサイクル |
+> | [docs/herdr.md](docs/herdr.md) | herdr の使い方 (タブ / ペイン / workspace)・キーバインド・設定の反映フロー |
+> | [docs/lazyvim.md](docs/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
+> | [docs/fish-nix-path.md](docs/fish-nix-path.md) | fish に Nix の PATH が通る仕組み |
 
 ---
 
@@ -39,9 +46,12 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | --- | --- |
 | シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト) |
 | Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
-| ターミナル | tmux (prefix `C-t`, resurrect/continuum, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
+| ターミナル | [herdr](https://herdr.dev/) (prefix `C-q`, セッション永続化, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
 | エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi / ghq |
+
+日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は
+[docs/herdr.md](docs/herdr.md) と [docs/lazyvim.md](docs/lazyvim.md) にまとめている。
 
 ---
 
@@ -59,7 +69,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │   ├── default.nix          #   配下のモジュールを集約
 │   ├── packages.nix         #   "入れるだけ" の CLI ツール群
 │   ├── git.nix              #   Git
-│   ├── tmux.nix             #   tmux + プラグイン
+│   ├── herdr.nix            #   herdr (ターミナルマルチプレクサ)
 │   ├── wezterm.nix          #   WezTerm
 │   ├── shell/               #   シェル関連
 │   │   ├── default.nix
@@ -237,15 +247,17 @@ git ペイン) を得るために、Neovim に [LazyVim](https://www.lazyvim.org
 
 | VS Code | LazyVim |
 | --- | --- |
-| エクスプローラー | `neo-tree` (`<leader>e`) |
-| エディタ split | `<C-w>v` / `<C-w>s`、移動は `<C-w>hjkl` |
+| エクスプローラー | `snacks.explorer` (`<leader>e`) |
+| エディタ split | `<leader>\|` / `<leader>-`、移動は `<C-w>hjkl` (`<C-hjkl>` でも可) |
 | 開いているファイルのタブ | `bufferline` (`<S-h>` / `<S-l>`) |
 | ソース管理パネル | `lazygit` を全画面起動 (`<leader>gg`)、行差分は `gitsigns` |
-| Ctrl+P / Ctrl+Shift+F | `telescope` (`<leader>ff` / `<leader>/`) |
+| Ctrl+P / Ctrl+Shift+F | `snacks.picker` (`<leader>ff` / `<leader>/`) |
 | IntelliSense | `nvim-lspconfig` + `blink.cmp` + `mason` |
 | 統合ターミナル | `<C-/>` |
 
 `<leader>` は Space。`<leader>` を押して少し待てば which-key がキー一覧を出す。
+バッファ / ウィンドウ / タブページの使い分けを含む詳細は
+**[docs/lazyvim.md](docs/lazyvim.md)** を参照。
 
 ### 管理の分担
 
@@ -301,6 +313,11 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
 - **エディタの設定を変えたい** → `~/.config/nvim/lua/` 配下 (Nix 管理外)。
   `home/editors/neovim.nix` は本体と外部コマンドだけを見る。
   詳細は [エディタ (Neovim + LazyVim)](#エディタ-neovim--lazyvim) を参照。
+- **ターミナルの prefix やテーマを変えたい** → `home/herdr.nix` の
+  `programs.herdr.settings`。switch すると `~/.config/herdr/config.toml` が
+  張り替わり、`herdr server reload-config` が自動で走る。
+  設定できる項目は `herdr --default-config`、検証は `herdr config check`。
+  詳細は [docs/herdr.md](docs/herdr.md)。
 - **新しい CLI ツールを足したい** → `home/packages.nix` の `home.packages` に追加。
   シェル統合が必要なものは `home/cli/<name>.nix` を作って `home/cli/default.nix` で imports する。
 - **fish のプラグインを足したい** → `home/shell/fish.nix` の `plugins` に
@@ -346,6 +363,10 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   設定を残したいなら `~/.config/nvim` 自体を別リポジトリで管理すること。
   作り直したいときは `rm -rf ~/.config/nvim ~/.local/share/nvim ~/.local/state/nvim`
   してから `home-manager switch` すれば starter を取り直す。
+- **`herdr update` は使わない**。herdr の実体は Nix store 上の読み取り専用バイナリなので
+  自己更新できない。バージョンは flake.lock で固定されているので、
+  `nix flake update` → `home-manager switch` で上げる。
+  herdr 設定の反映フローとキーバインドは [docs/herdr.md](docs/herdr.md)。
 - **`pkgs.fishPlugins` にないプラグイン**を使いたい場合は `fetchFromGitHub` で src を固定する
   (詳細は `home/shell/fish.nix` のコメント参照)。
 - **fish_plugins (fisher)** をリポジトリに残しても Nix 管理下では機能しないので消して良い。

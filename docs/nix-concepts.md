@@ -381,7 +381,7 @@ Home Manager や NixOS の設定は**モジュールシステム**の上に成�
 {
   imports = [
     ./git.nix
-    ./tmux.nix
+    ./herdr.nix
     ./shell
   ];
 }

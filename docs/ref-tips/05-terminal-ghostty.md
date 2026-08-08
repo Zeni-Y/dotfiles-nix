@@ -31,8 +31,8 @@
 
 - **概要**: 専用モード入って hjkl で分割サイズ調整
 - **参照**: `ref/kawarimidoll-dotfiles/.config/ghostty/config`
-- **メリット**: tmux 不要で多重表示
-- **デメリット**: tmux と機能重複
+- **メリット**: herdr 不要で多重表示
+- **デメリット**: herdr と機能重複
 - **実装メモ**: keybind 設定
 
 ### - [ ] `Shift+Enter = CSI u` エンコーディング

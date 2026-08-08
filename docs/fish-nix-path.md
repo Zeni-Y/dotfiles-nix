@@ -100,7 +100,7 @@ Determinate Systems の nix-installer は、この `vendor_conf.d` を
 | 箇所 | 指定 |
 | --- | --- |
 | `home/shell/bash.nix` | `exec ${pkgs.fish}/bin/fish` |
-| `home/cli/zellij.nix` | `default_shell = "${pkgs.fish}/bin/fish"` |
+| `home/herdr.nix` | `terminal.default_shell = "${pkgs.fish}/bin/fish"` |
 
 その代わり、Nix store の fish は上記の `/usr/share/fish/vendor_conf.d/nix.fish`
 を拾えるとは限りません。どちらの fish で起動しても同じ PATH になるよう、

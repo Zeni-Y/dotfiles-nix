@@ -16,7 +16,7 @@
     ./cli
 
     ./git.nix
-    ./tmux.nix
+    ./herdr.nix
     ./wezterm.nix
   ];
 

@@ -1,6 +1,13 @@
 # 04. Neovim — keymap / mini.nvim / プラグイン管理
 
-現状 `home/editors/neovim.nix` は本体を入れる最小構成。本格構成化の参考。
+現状は **Neovim + LazyVim** 構成 (→ [docs/lazyvim.md](../lazyvim.md))。
+`home/editors/neovim.nix` が持つのは本体と外部コマンドだけで、設定とプラグインは
+`~/.config/nvim/` (Nix 管理外) にある。以下はそこに足す候補。
+
+> **注意**: 下の項目には `programs.neovim.extraLuaConfig` を実装先に挙げたものが
+> あるが、現構成では `programs.neovim` を使っていない
+> (理由は [docs/lazyvim.md 1 章](../lazyvim.md#1-責務の分担))。
+> 実際の実装先は `~/.config/nvim/lua/config/keymaps.lua` などになる。
 
 ## キーマップ (ryoppippi)
 
@@ -88,16 +95,20 @@
 
 ## 構成方針
 
-### - [ ] 方針 A: 本体 + LSP/treesitter のみ Nix 化
+### 方針 A: 本体 + 外部コマンドのみ Nix 化 — **採用済み (チェック対象外)**
 
-- **概要**: 設定 (init.lua/Lua プラグイン) は `~/.config/nvim/` に直書き
-- **メリット**: nvim プラグイン更新が高速、Nix リビルド不要
-- **デメリット**: マシン間の再現性は git だけに依存
-- **実装メモ**: 現状維持寄り。LSP サーバ群を `home.packages` に追加
+- **概要**: 設定 (init.lua / Lua プラグイン) は `~/.config/nvim/` に直書き。
+  プラグインは lazy.nvim、LSP は mason が管理する
+- **メリット**: nvim プラグイン更新が高速、Nix リビルド不要。LazyVim をそのまま使える
+- **デメリット**: マシン間の再現性は `~/.config/nvim` の git 管理と
+  `lazy-lock.json` に依存する
+- **実装メモ**: `home/editors/neovim.nix` (本体 + nodejs + tree-sitter + starter の初回 clone)。
+  mason が動かない環境では LSP サーバを `home/packages.nix` に足す
 
 ### - [ ] 方針 B: `programs.neovim.plugins` で全プラグイン Nix 化
 
 - **概要**: lazy.nvim 廃止、プラグインは Nix で固定
 - **メリット**: flake.lock で完全再現、ロールバック可能
-- **デメリット**: 起動時間微増、最新プラグイン追従が遅め
+- **デメリット**: 起動時間微増、最新プラグイン追従が遅め。**LazyVim とは併用できない**
+  (`programs.neovim` が `init.lua` を Nix store の symlink にするため)
 - **実装メモ**: `home/editors/neovim.nix` に `plugins = with pkgs.vimPlugins; [...]`
