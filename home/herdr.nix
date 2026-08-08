@@ -78,6 +78,35 @@
     };
   };
 
+  # ─── SSH agent forwarding を herdr のペインでも生かす ───
+  #
+  # herdr サーバは起動時の環境変数を保持し続けるため、SSH を張り直して
+  # 転送ソケット (/tmp/ssh-XXXX/agent.NNN) のパスが変わっても、ペインの
+  # SSH_AUTH_SOCK は消えた古いソケットを指したままになる
+  # (`ssh-add -L` → `Error connecting to agent: No such file or directory`)。
+  # tmux の update-environment 相当は herdr 0.7.5 に無い
+  # (--default-config / docs/configuration / CLI ヘルプで確認。
+  # サーバ環境を書き換える API も無いので外からも直せない)。
+  #
+  # そこで「サーバの env を直す」のではなく「env が指す先を固定する」:
+  #   - herdr の外 (SSH 直下のシェル): 生きているソケットを固定パス
+  #     ~/.ssh/ssh_auth_sock に symlink し直す
+  #   - herdr の中のペイン: 常にその固定パスを見る
+  # SSH を張り直すたびに外側のシェルが symlink を更新するので、
+  # herdr 内の全ペインは開き直さなくても新しいソケットに届く。
+  #
+  # HERDR_ENV で分岐しているのは、herdr 内のシェルが継承した古い値で
+  # symlink を上書きしてしまうのを防ぐため。同時に複数の SSH 接続が
+  # あると最後のログインが symlink を取るが、どれも生きたソケットなので
+  # 実害はない。
+  programs.fish.interactiveShellInit = ''
+    if set -q HERDR_ENV
+        set -gx SSH_AUTH_SOCK $HOME/.ssh/ssh_auth_sock
+    else if test -S "$SSH_AUTH_SOCK"; and test "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock"
+        ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
+    end
+  '';
+
   # 起動・再アタッチを短く打てるようにする短縮エイリアス。
   # fish の alias は $argv を後ろに継ぐ関数になるので、
   # `hd session list` や `hd --session work` もそのまま通る。

@@ -342,6 +342,22 @@ herdr integration install claude  # ~/.claude/hooks/herdr-agent-state.sh を置�
   (以前このリポジトリでも書いていて無視されていたため削除しました)。
   タブバーまわりで今使えるのは `ui.hide_tab_bar_when_single_tab` です。
   **設定を足したら `herdr config check` で不明キーが無いか確認する**のが確実です。
+- **SSH agent forwarding がペインの中で死ぬ** (`ssh-add -L` →
+  `Error connecting to agent: No such file or directory`)。herdr サーバは
+  起動時の環境変数を保持し続けるため、SSH を張り直して転送ソケット
+  (`/tmp/ssh-XXXX/agent.NNN`) のパスが変わっても、ペインの `SSH_AUTH_SOCK` は
+  消えた古いソケットを指したままになります。tmux の `update-environment` に
+  相当する機能は 0.7.5 にはありません (`--default-config` /
+  [docs/configuration](https://herdr.dev/docs/configuration/) / CLI ヘルプで確認。
+  `herdr pane split --env` で新規ペイン 1 個に手動で渡せるだけで、
+  サーバ側の環境を後から書き換える API もありません)。
+  このリポジトリでは `home/herdr.nix` の fish 設定で対策済みです:
+  herdr の外のシェルが生きているソケットを固定パス `~/.ssh/ssh_auth_sock` に
+  symlink し、herdr 内のペインは常にその固定パスを見ます。
+  SSH を張り直せば、既存ペインも (fish が symlink 経由で届くので)
+  開き直し不要で復活します。対策適用前から開いているペインだけは
+  古い値を直接持っているので、`set -gx SSH_AUTH_SOCK ~/.ssh/ssh_auth_sock`
+  を打つか開き直してください。
 - **herdr のペインの中から `herdr` を起動できない**。`experimental.allow_nested`
   が既定で `false` のため。ネストしたいときだけ明示的に有効化します。
 - **設定画面 (`prefix+s`) の変更は保存できない** (上記 7 章)。
