@@ -40,7 +40,8 @@
         #
         # ctrl+q が奪うのは次の 3 つで、いずれも代替手段がある:
         #   - fzf の abort        → ctrl+c / ctrl+g / esc
-        #   - Neovim の CTRL-Q    → CTRL-V (矩形ビジュアル。CTRL-Q は元々その別名)
+        #   - Neovim の CTRL-Q    → ノーマルモードでは未使用。挿入 / コマンドライン
+        #                           モードの CTRL-V 相当 (literal 入力) だけ失う
         #   - readline の quoted-insert (bash) → CTRL-V
         # 端末のフロー制御 (XON) も ctrl+q だが、herdr クライアントは
         # raw モードで入力を読むため干渉しない。

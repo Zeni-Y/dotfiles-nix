@@ -278,11 +278,13 @@ herdr integration install claude  # ~/.claude/hooks/herdr-agent-state.sh を置�
   | `ctrl+b` (herdr 既定) | fish / readline の `backward-char` (1 文字戻る) | 常用キーなので不採用 |
   | `ctrl+t` (旧設定) | fzf のシェル統合 (`bind ctrl-t fzf-file-widget` — ファイルをあいまい検索して挿入) | 常用するので不採用 |
   | `ctrl+j` | fzf の `down` (候補を下へ)、LazyVim の `<C-j>` (下のウィンドウへ)、readline の `accept-line` (= Enter) | 常用キーが 3 つ潰れるので不採用 |
-  | **`ctrl+q` (採用)** | fzf の `abort`、Neovim の `CTRL-Q` (矩形ビジュアル)、readline の `quoted-insert`、端末のフロー制御 (XON) | いずれも代替あり |
+  | **`ctrl+q` (採用)** | fzf の `abort`、Neovim の挿入/コマンドラインモードの `CTRL-Q`、readline の `quoted-insert`、端末のフロー制御 (XON) | いずれも代替あり |
 
   `ctrl+q` を選んだ場合の代替手段:
   - fzf を閉じる → `Ctrl-c` / `Ctrl-g` / `Esc`
-  - Neovim の矩形ビジュアル → `Ctrl-v` (`CTRL-Q` はもともとその別名)
+  - Neovim → ノーマルモードの `CTRL-Q` はそもそも未使用
+    (`:help index` に "not used, or used for terminal control flow")。
+    挿入 / コマンドラインモードの literal 入力は `Ctrl-v` で代替できる
   - bash の quoted-insert → `Ctrl-v`
   - XON (`Ctrl-s` で止めた出力の再開) → herdr クライアントは raw モードで
     入力を読むためフロー制御は効いておらず、そもそも `Ctrl-s` で止まりません
