@@ -68,4 +68,19 @@
       };
     };
   };
+
+  # 起動・再アタッチを短く打てるようにする短縮エイリアス。
+  # fish の alias は $argv を後ろに継ぐ関数になるので、
+  # `hd session list` や `hd --session work` もそのまま通る。
+  #
+  # bash は対話なら fish に exec する (home/shell/bash.nix) ため
+  # 実質 fish 側しか使われないが、exec に至らない経路のために揃えておく。
+  # `hd` という名前のコマンドは PATH 上に存在しない (hexdump の hd は
+  # bsdmainutils 由来で、この環境には入っていない) ので衝突しない。
+  programs.fish.shellAliases = {
+    hd = "herdr";
+  };
+  programs.bash.shellAliases = {
+    hd = "herdr";
+  };
 }
