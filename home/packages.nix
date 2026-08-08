@@ -29,8 +29,8 @@
     rsync
 
     # Git 関連
+    # ghq / gwq はシェル関数や設定を持つので home/cli/ 側にある
     lazygit
-    ghq
 
     # Git 以外の VCS / インフラ
     gnumake

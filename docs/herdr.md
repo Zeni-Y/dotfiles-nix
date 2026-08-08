@@ -218,7 +218,7 @@ herdr は動作中サーバをソケット API 経由で操作する CLI を持�
 
 ```bash
 herdr tab list
-herdr tab create --cwd ~/ghq/dotfiles-nix --label build --focus
+herdr tab create --cwd ~/ghq/github.com/Zeni-Y/dotfiles-nix --label build --focus
 herdr pane split --current --direction down --ratio 0.3
 herdr pane run --current -- cargo test         # ペインでコマンドを実行
 herdr pane read --current                      # ペインの出力を読む

@@ -10,8 +10,9 @@
 1. [補完はほぼ何もしなくても効く](#1-補完はほぼ何もしなくても効く)
 2. [abbreviation を alias より優先する理由](#2-abbreviation-を-alias-より優先する理由)
 3. [定義済み abbreviation 一覧](#3-定義済み-abbreviation-一覧)
-4. [追加・変更のしかた](#4-追加変更のしかた)
-5. [注意点](#5-注意点)
+4. [abbr ではなく関数にしているもの](#4-abbr-ではなく関数にしているもの)
+5. [追加・変更のしかた](#5-追加変更のしかた)
+6. [注意点](#6-注意点)
 
 ---
 
@@ -119,11 +120,11 @@ hunk 単位の add や rebase の並べ替えのような込み入った操作�
 
 | 短縮 | 展開 |
 | --- | --- |
-| `hms` | `home-manager switch --flake ~/ghq/dotfiles-nix#zenimoto@ubuntu` |
+| `hms` | `home-manager switch --flake ~/ghq/github.com/Zeni-Y/dotfiles-nix#zenimoto@ubuntu` |
 | `hmn` | `home-manager news --flake …` |
 | `hmg` | `home-manager generations --flake …` |
-| `nfc` | `nix flake check --no-build ~/ghq/dotfiles-nix` |
-| `nfu` | `nix flake update --flake ~/ghq/dotfiles-nix` |
+| `nfc` | `nix flake check --no-build ~/ghq/github.com/Zeni-Y/dotfiles-nix` |
+| `nfu` | `nix flake update --flake ~/ghq/github.com/Zeni-Y/dotfiles-nix` |
 
 flake 構成では `--flake` を省略すると `~/.config/home-manager/home.nix` を
 探しに行って `No configuration file found` で落ちるため、home-manager 系は
@@ -135,7 +136,37 @@ abbr にしています。
 
 ---
 
-## 4. 追加・変更のしかた
+## 4. abbr ではなく関数にしているもの
+
+abbr は「打った文字列を別の文字列に置き換える」だけなので、**引数を受けて分岐する**
+ものや **カレントディレクトリを変える**ものは書けません。そこは
+`programs.fish.functions` を使います。生成先は
+`~/.config/fish/functions/<name>.fish` で、fish の autoload に乗るため
+**シェル起動時のコストはゼロ**です (`interactiveShellInit` に直書きした場合と違い、
+呼ばれるまで読まれません)。
+
+| コマンド | できること | 定義場所 |
+| --- | --- | --- |
+| `dev [query]` | ghq 配下 (clone も worktree も) を fzf で選んで `cd`。herdr の中ならワークスペース名も追従する | `home/cli/ghq.nix` |
+| `ghq-path [query]` | 同じ一覧からパスだけを返す (`dev` の下請け。`ls (ghq-path)` のようにも使える) | 同上 |
+| `gwq cd` / `gwq add` | **カレントリポジトリの** worktree 間を移動 / 作成して移動 | `home/cli/gwq.nix` |
+
+`dev` と `gwq cd` は守備範囲が違います。**リポジトリをまたぐなら `dev`、
+同じリポジトリの worktree 間なら `gwq cd`** です。
+
+`gwq` の 2 つは自前の関数ではなく、gwq が `gwq completion fish` で吐く
+**シェル統合スクリプト**です。`cd.launch_shell = false` を設定したときだけ出力され、
+これが無いと `gwq cd` は「新しいシェルを起こしてその中で移動する」ため、
+worktree を渡り歩くたびにシェルが積み上がります。
+生成と読み込みの仕組みは
+[git-worktree.md 7-3 章](./git-worktree.md#7-3-移動を作る--シェル統合と-dev)。
+
+> `dev` / `ghq-path` は fish 専用です。abbr と同じく、対話 bash は fish に
+> `exec` するので実害はありません ([6 章](#6-注意点))。
+
+---
+
+## 5. 追加・変更のしかた
 
 **ツール固有の abbr は、そのツールのモジュールに置きます。**
 `vi` / `vim` の alias を `home/editors/neovim.nix` に置いているのと同じ方針で、
@@ -175,7 +206,7 @@ fish を開き直すだけです。
 
 ---
 
-## 5. 注意点
+## 6. 注意点
 
 - **fish 専用**。bash では abbr は効きません。bash は対話なら fish に
   `exec` する構成 (`home/shell/bash.nix`) なので実害はほぼありませんが、

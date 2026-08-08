@@ -8,6 +8,8 @@
     ./direnv.nix
     ./fzf.nix
     ./gh.nix
+    ./ghq.nix
+    ./gwq.nix
     ./zoxide.nix
     ./eza.nix
   ];
