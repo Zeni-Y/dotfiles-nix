@@ -34,9 +34,17 @@
         #
         # --select-1 で候補が 1 件なら即決定、--exit-0 で 0 件なら
         # ファインダを出さずに終了する (`dev dotfiles` のような使い方向け)。
+        #
+        # --with-nth -1 は「表示と絞り込みだけ」最終要素 (<repo> や
+        # <repo>=<branch>) に絞る。<GHQ_ROOT>/<host>/<owner> は全リポジトリで
+        # 共通なので出す意味が無い。選択結果 {} と関数の返り値は元の行の
+        # ままフルパスなので、preview や dev 側の cd はそのまま動く。
+        # 別 owner のリポジトリを持ち始めて名前が衝突するようになったら
+        # -2.. (owner/repo 表示) に広げること。
         ghq list --full-path \
           | fzf --query "$argv" \
                 --select-1 --exit-0 \
+                --delimiter / --with-nth -1 \
                 --prompt 'repo> ' \
                 --preview 'git -C {} log --oneline --decorate --graph -10 2>/dev/null'
       '';
