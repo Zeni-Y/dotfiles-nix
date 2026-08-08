@@ -724,7 +724,7 @@ herdr agent read <target>              # 出力を読む
 状態表示を有効にするには統合の導入が必要です
 (`herdr integration install claude`)。ただし置き先の `~/.claude/hooks/` は
 Home Manager の管理外なので、恒久運用するなら `home/` 配下で `home.file` として
-宣言し直してください ([herdr.md 7 章](./herdr.md#7-cli-から操作する))。
+宣言し直してください ([herdr.md 8 章](./herdr.md#8-cli-から操作する))。
 
 ### 8-3. Claude Code に任せる (見張らない場合)
 
