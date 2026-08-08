@@ -1,0 +1,219 @@
+# ─────────────────────────────────────────────────────────────
+# preview: リモートの markdown / HTML をローカルのブラウザで見る
+#
+# このマシン (リモート) で HTML に変換して 127.0.0.1 限定の HTTP で
+# 配信し、ローカル側は SSH の LocalForward 越しに Chrome で開く。
+# 完全オフライン (pandoc + entr + python http.server) で、外部 API や
+# ネットワーク公開を伴わない。使い方は docs/preview.md。
+#
+# サーバーは ~/.cache/preview/ を配信ルートに 1 個だけ常駐させ、
+# ファイルごとにサブパス (/<slug>/) を割り当てる。複数ファイルを
+# 同時にプレビューしてもポートが増えず、ローカル側の LocalForward が
+# 1 行で済むようにするための設計 (1 起動 = 1 ポートにしない)。
+#
+# ターミナル内に画像として描画する案 (Kitty graphics) も検証したが、
+# テキスト選択・コピーができない静止画になるため不採用にした。
+# 検証記録は docs/preview.md 5 章。
+# ─────────────────────────────────────────────────────────────
+{ pkgs, ... }:
+
+let
+  # pandoc の素の standalone HTML は無装飾で読みにくいので最小限の CSS を当てる。
+  # --embed-resources で HTML 本体に埋め込まれるため、配信するのは 1 ファイルで済む。
+  previewCss = pkgs.writeText "preview.css" ''
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
+    h1, h2 { border-bottom: 1px solid #8884; padding-bottom: .3em; }
+    pre { background: #8881; padding: .8em; border-radius: 6px; overflow-x: auto; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #8886; padding: .3em .8em; }
+    blockquote { border-left: 4px solid #8886; margin-left: 0; padding-left: 1em; opacity: .8; }
+    img { max-width: 100%; }
+  '';
+
+  preview = pkgs.writeShellApplication {
+    name = "preview";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.gnused
+      # setsid のため (サーバーを呼び出し元のプロセスグループから切り離す)
+      pkgs.util-linux
+      pkgs.pandoc
+      pkgs.entr
+      pkgs.python3
+    ];
+    text = ''
+      # --render: entr から呼び直される内部モード (1 回ぶんの md → HTML 変換)。
+      # シェル関数は entr に渡せないため、自分自身を引数付きで再実行する形にしている。
+      if [ "''${1:-}" = "--render" ]; then
+        shift
+        src=$1 out=$2 refresh=''${3:-}
+        args=()
+        if [ -n "$refresh" ]; then
+          args+=(-V "header-includes=<meta http-equiv=\"refresh\" content=\"$refresh\">")
+        fi
+        # 相対パスの画像を --embed-resources で拾えるよう、元ファイルの場所で変換する
+        cd "$(dirname "$src")"
+        pandoc -s -f gfm -t html5 --embed-resources \
+          --css ${previewCss} \
+          --metadata "title=$(basename "$src")" \
+          "''${args[@]}" -o "$out" "$(basename "$src")"
+        exit 0
+      fi
+
+      usage() {
+        cat <<'EOF'
+      使い方: preview [-p PORT] [-r 秒] <file.md|file.html>
+              preview -l   登録済みプレビューの一覧を表示する
+              preview -s   サーバーを停止する (登録はキャッシュに残る)
+
+      サーバーは 1 個だけ常駐し、ファイルごとに http://localhost:PORT/<slug>/ を
+      割り当てる。トップ (/) は一覧ページ。ローカル側で LocalForward を張って開く。
+        -p PORT   待ち受けポート (既定 4649。稼働中のサーバーがあればそちらに従う)
+        -r 秒     ブラウザ側の自動リロード間隔 (markdown のみ。既定は手動リロード)
+      EOF
+      }
+
+      root=''${XDG_CACHE_HOME:-$HOME/.cache}/preview
+      meta=$root/.meta
+      pidfile=$root/server.pid
+      portfile=$root/server.port
+      mkdir -p "$root" "$meta"
+
+      server_running() {
+        [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null
+      }
+
+      # トップページ: 登録済みエントリへのリンク一覧を静的に生成する。
+      # python http.server は index.html があればそれを返すので、これだけで済む
+      generate_index() {
+        {
+          printf '<!doctype html><html><head><meta charset="utf-8"><title>preview</title>'
+          printf '<style>body{font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.8}</style>'
+          printf '</head><body><h1>preview 一覧</h1><ul>'
+          for m in "$meta"/*; do
+            [ -f "$m" ] || continue
+            printf '<li><a href="/%s">%s</a></li>' "$(sed -n 2p "$m")" "$(sed -n 1p "$m")"
+          done
+          printf '</ul></body></html>'
+        } > "$root/index.html"
+      }
+
+      ensure_server() {
+        if server_running; then
+          running_port=$(cat "$portfile")
+          if [ "$running_port" != "$port" ]; then
+            echo "注意: サーバーはポート $running_port で稼働中なのでそちらを使う (-p $port は無視)" >&2
+            port=$running_port
+          fi
+          return
+        fi
+        # setsid で別セッションに切り離す。nohup では足りない:
+        # md の監視 (entr) を Ctrl-C で止めるとき、同じプロセスグループに居ると
+        # サーバーまで SIGINT で道連れになる。端末クローズ (SIGHUP) 対策も兼ねる。
+        # 127.0.0.1 に束縛して LAN には公開しない。届く経路は SSH トンネルだけ
+        setsid python3 -m http.server "$port" --bind 127.0.0.1 --directory "$root" \
+          > "$root/server.log" 2>&1 &
+        echo $! > "$pidfile"
+        echo "$port" > "$portfile"
+        sleep 0.5
+        if ! server_running; then
+          echo "サーバーの起動に失敗 (ポート $port が使用中?):" >&2
+          tail -3 "$root/server.log" >&2
+          rm -f "$pidfile" "$portfile"
+          exit 1
+        fi
+      }
+
+      port=4649
+      refresh=""
+      action=serve
+      while getopts "p:r:lsh" opt; do
+        case $opt in
+          p) port=$OPTARG ;;
+          r) refresh=$OPTARG ;;
+          l) action=list ;;
+          s) action=stop ;;
+          h) usage; exit 0 ;;
+          *) usage >&2; exit 1 ;;
+        esac
+      done
+      shift $((OPTIND - 1))
+
+      if [ "$action" = list ]; then
+        [ -f "$portfile" ] && port=$(cat "$portfile")
+        if server_running; then
+          state="稼働中 (pid $(cat "$pidfile"))"
+        else
+          state="停止中"
+        fi
+        echo "サーバー: $state  http://localhost:$port/"
+        for m in "$meta"/*; do
+          [ -f "$m" ] || continue
+          printf '  http://localhost:%s/%s\t%s\n' "$port" "$(sed -n 2p "$m")" "$(sed -n 1p "$m")"
+        done
+        exit 0
+      fi
+
+      if [ "$action" = stop ]; then
+        if server_running; then
+          kill "$(cat "$pidfile")"
+          rm -f "$pidfile" "$portfile"
+          echo "サーバーを停止した (登録は $root に残る。全消しは rm -rf $root)"
+        else
+          echo "サーバーは起動していない"
+        fi
+        exit 0
+      fi
+
+      if [ $# -ne 1 ]; then
+        usage >&2
+        exit 1
+      fi
+      src=$(realpath "$1")
+      if [ ! -f "$src" ]; then
+        echo "ファイルがありません: $src" >&2
+        exit 1
+      fi
+
+      # スラグは「ファイル名 + フルパスのハッシュ」。同名ファイル (別リポジトリの
+      # README.md 同士など) が衝突しないようにしつつ、URL から中身が分かる形にする
+      slug=$(printf '%s' "$(basename "$src")" | tr -c 'A-Za-z0-9._-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-6)
+
+      case $src in
+        *.md | *.markdown)
+          # 変換結果はキャッシュ領域に置き、元ファイルのディレクトリを汚さない
+          dir=$root/$slug
+          mkdir -p "$dir"
+          url=$slug/
+          printf '%s\n%s\n' "$src" "$url" > "$meta/$slug"
+          generate_index
+          ensure_server
+          "$0" --render "$src" "$dir/index.html" "$refresh"
+          echo "ローカルのブラウザで開く: http://localhost:$port/$url"
+          echo "(一覧: http://localhost:$port/  監視を終えるには Ctrl-C。サーバーは残る)"
+          # 保存のたびに変換し直す。フォアグラウンドで待つので Ctrl-C で監視だけ終わる
+          printf '%s\n' "$src" | entr -np "$0" --render "$src" "$dir/index.html" "$refresh"
+          ;;
+        *.html | *.htm)
+          # HTML は変換せず、相対パスの画像や CSS が生きるようディレクトリごと
+          # symlink で配信ルートに載せる (実体はコピーしない)
+          ln -sfn "$(dirname "$src")" "$root/$slug"
+          url=$slug/$(basename "$src")
+          printf '%s\n%s\n' "$src" "$url" > "$meta/$slug"
+          generate_index
+          ensure_server
+          echo "ローカルのブラウザで開く: http://localhost:$port/$url"
+          echo "(一覧: http://localhost:$port/  サーバー停止は preview -s)"
+          ;;
+        *)
+          echo "対応していない拡張子です (.md / .html): $src" >&2
+          exit 1
+          ;;
+      esac
+    '';
+  };
+in
+{
+  home.packages = [ preview ];
+}

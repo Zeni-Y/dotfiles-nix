@@ -13,6 +13,7 @@
 | [claude-code.md](./claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と、Nix での配り方 |
 | [fish-abbr.md](./fish-abbr.md) | fish の補完がどこから来ているか・短縮入力 (abbreviation) の一覧と足し方 |
 | [fish-nix-path.md](./fish-nix-path.md) | fish に Nix の PATH が通る仕組みと、このリポジトリでの扱い |
+| [preview.md](./preview.md) | リモートの markdown / HTML をローカルのブラウザで見る `preview` コマンドの使い方と設計 |
 | [ref-tips/](./ref-tips/) | 他の dotfiles から取り入れる候補のチェックリスト |
 
 ## どこを見ればいいか
@@ -30,6 +31,7 @@
 | ペインの出力を遡りたい / コピーしたい | [herdr.md 5 章](./herdr.md#5-ペインの操作-分割スクロールコピー) |
 | セッションを残したままターミナルを閉じたい | [herdr.md 3 章](./herdr.md#3-起動デタッチ終了-ランタイムのライフサイクル) |
 | 複数の coding agent を並列に走らせたい | [git-worktree.md 8 章](./git-worktree.md#8-並列エージェント運用のレシピ) |
+| リモートの markdown / HTML を手元のブラウザで見たい | [preview.md](./preview.md) |
 | worktree をどこに置けばいいか (ghq との関係) | [git-worktree.md 5 章](./git-worktree.md#5-置き場所の設計--集約派と隔離派) |
 | clone と worktree を `~/ghq` に集約したい (gwq) | [git-worktree.md 7 章](./git-worktree.md#7-集約派で揃える--gwq-と-herdr-を合わせる) |
 | worktree を消したのにブランチが残る / 消せない | [git-worktree.md 4 章](./git-worktree.md#4-ライフサイクル-素の-git) |
