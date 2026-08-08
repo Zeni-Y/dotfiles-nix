@@ -6,10 +6,12 @@
 # 完全オフライン (pandoc + entr + python http.server) で、外部 API や
 # ネットワーク公開を伴わない。使い方は docs/preview.md。
 #
-# サーバーは ~/.cache/preview/ を配信ルートに 1 個だけ常駐させ、
+# サーバーは ~/.cache/preview を配信ルートに 1 個だけ常駐させ、
 # ファイルごとにサブパス (/<slug>/) を割り当てる。複数ファイルを
 # 同時にプレビューしてもポートが増えず、ローカル側の LocalForward が
 # 1 行で済むようにするための設計 (1 起動 = 1 ポートにしない)。
+# ディレクトリを渡すと、配下の md/html を左ツリー + 右 iframe の
+# 2 ペイン画面でまとめて見られる。
 #
 # ターミナル内に画像として描画する案 (Kitty graphics) も検証したが、
 # テキスト選択・コピーができない静止画になるため不採用にした。
@@ -35,7 +37,9 @@ let
     name = "preview";
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.findutils
       pkgs.gnused
+      pkgs.gnugrep
       # setsid のため (サーバーを呼び出し元のプロセスグループから切り離す)
       pkgs.util-linux
       pkgs.pandoc
@@ -43,32 +47,120 @@ let
       pkgs.python3
     ];
     text = ''
-      # --render: entr から呼び直される内部モード (1 回ぶんの md → HTML 変換)。
-      # シェル関数は entr に渡せないため、自分自身を引数付きで再実行する形にしている。
-      if [ "''${1:-}" = "--render" ]; then
-        shift
-        src=$1 out=$2 refresh=''${3:-}
-        args=()
+      render_md() {
+        # $1=元ファイル $2=出力先 $3=自動リロード秒 (空なら無し)。
+        # 相対パスの画像を --embed-resources で拾えるよう、元ファイルの場所で変換する
+        local src=$1 out=$2 refresh=''${3:-}
+        local args=()
         if [ -n "$refresh" ]; then
           args+=(-V "header-includes=<meta http-equiv=\"refresh\" content=\"$refresh\">")
         fi
-        # 相対パスの画像を --embed-resources で拾えるよう、元ファイルの場所で変換する
-        cd "$(dirname "$src")"
-        pandoc -s -f gfm -t html5 --embed-resources \
-          --css ${previewCss} \
-          --metadata "title=$(basename "$src")" \
-          "''${args[@]}" -o "$out" "$(basename "$src")"
-        exit 0
-      fi
+        (
+          cd "$(dirname "$src")" &&
+            pandoc -s -f gfm -t html5 --embed-resources \
+              --css ${previewCss} \
+              --metadata "title=$(basename "$src")" \
+              "''${args[@]}" -o "$out" "$(basename "$src")"
+        )
+      }
+
+      list_files() {
+        # $1 配下の md/html を相対パスで列挙する。隠しディレクトリ (.git など) と
+        # node_modules は除外。-mindepth 1 が無いと起点の . 自体が '.*' の
+        # prune に食われて何も出なくなる
+        (
+          cd "$1" &&
+            find . -mindepth 1 \( -name '.*' -o -name node_modules \) -prune -o \
+              -type f \( -name '*.md' -o -name '*.markdown' -o -name '*.html' -o -name '*.htm' \) -print \
+            | sed 's|^\./||' | LC_ALL=C sort
+        )
+      }
+
+      generate_dir_index() {
+        # $1=元ディレクトリ $2=スラグディレクトリ。
+        # 左にファイルツリー、右に iframe の 2 ペイン画面を生成する。
+        # target="content" の素の HTML だけで動かし、JS には依存しない
+        local srcroot=$1 slugdir=$2 slug rel d base depth prevdir=""
+        slug=$(basename "$slugdir")
+        {
+          printf '<!doctype html><html><head><meta charset="utf-8"><title>%s</title><style>' "$(basename "$srcroot")"
+          printf 'body{display:flex;height:100vh;margin:0;font-family:system-ui,sans-serif}'
+          printf '#side{width:16rem;overflow:auto;border-right:1px solid #8884;padding:.8rem;flex-shrink:0}'
+          printf '#side h2{font-size:1rem;margin:.2rem 0 .8rem}'
+          printf '#side a{display:block;padding:.15rem .3rem;text-decoration:none;border-radius:4px;overflow-wrap:anywhere}'
+          printf '#side a:hover{background:#8882}'
+          printf '#side .d{opacity:.6;font-size:.85em;margin-top:.4rem}'
+          printf 'iframe{flex:1;border:0}'
+          printf '</style></head><body><nav id="side"><h2>%s</h2>' "$(basename "$srcroot")"
+          while IFS= read -r rel; do
+            d=$(dirname "$rel")
+            base=$(basename "$rel")
+            depth=$(printf '%s' "$rel" | tr -cd / | wc -c)
+            if [ "$d" != "$prevdir" ] && [ "$d" != . ]; then
+              printf '<div class="d" style="padding-left:%sem">%s/</div>' "$((depth - 1))" "$d"
+            fi
+            prevdir=$d
+            case $rel in
+              *.md | *.markdown)
+                printf '<a style="padding-left:%sem" href="/%s/md/%s.html" target="content">%s</a>' \
+                  "$depth" "$slug" "$rel" "$base"
+                ;;
+              *)
+                printf '<a style="padding-left:%sem" href="/%s/src/%s" target="content">%s</a>' \
+                  "$depth" "$slug" "$rel" "$base"
+                ;;
+            esac
+          done < <(list_files "$srcroot")
+          printf '</nav><iframe name="content"></iframe></body></html>'
+        } > "$slugdir/index.html"
+      }
+
+      render_dir_all() {
+        # $1=元ディレクトリ $2=スラグディレクトリ $3=自動リロード秒。
+        # 1 ファイルの失敗 (壊れた md など) で全体を止めない
+        local srcroot=$1 slugdir=$2 refresh=$3 rel
+        while IFS= read -r rel; do
+          case $rel in
+            *.md | *.markdown)
+              mkdir -p "$slugdir/md/$(dirname "$rel")"
+              render_md "$srcroot/$rel" "$slugdir/md/$rel.html" "$refresh" \
+                || echo "変換失敗: $rel" >&2
+              ;;
+          esac
+        done < <(list_files "$srcroot")
+      }
+
+      # ── 内部モード (entr から自分自身を呼び直すためのもの) ──
+      case "''${1:-}" in
+        --render)
+          render_md "$2" "$3" "''${4:-}"
+          exit 0
+          ;;
+        --render-rel)
+          # $2=元dir $3=スラグdir $4=自動リロード秒 $5=変更されたファイル。
+          # ツリーは毎回作り直す (ファイル名変更などの取りこぼし対策として安価)
+          generate_dir_index "$2" "$3"
+          case $5 in
+            *.md | *.markdown)
+              rel=''${5#"$2"/}
+              mkdir -p "$3/md/$(dirname "$rel")"
+              render_md "$5" "$3/md/$rel.html" "''${4:-}"
+              ;;
+          esac
+          exit 0
+          ;;
+      esac
 
       usage() {
         cat <<'EOF'
-      使い方: preview [-p PORT] [-r 秒] <file.md|file.html>
+      使い方: preview [-p PORT] [-r 秒] <file.md|file.html|ディレクトリ>
               preview -l   登録済みプレビューの一覧を表示する
               preview -s   サーバーを停止する (登録はキャッシュに残る)
 
-      サーバーは 1 個だけ常駐し、ファイルごとに http://localhost:PORT/<slug>/ を
+      サーバーは 1 個だけ常駐し、対象ごとに http://localhost:PORT/<slug>/ を
       割り当てる。トップ (/) は一覧ページ。ローカル側で LocalForward を張って開く。
+      ディレクトリを渡すと、配下の md/html を左ツリー + 右プレビューの
+      2 ペイン画面でまとめて見られる。
         -p PORT   待ち受けポート (既定 4649。稼働中のサーバーがあればそちらに従う)
         -r 秒     ブラウザ側の自動リロード間隔 (markdown のみ。既定は手動リロード)
       EOF
@@ -171,7 +263,7 @@ let
         exit 1
       fi
       src=$(realpath "$1")
-      if [ ! -f "$src" ]; then
+      if [ ! -e "$src" ]; then
         echo "ファイルがありません: $src" >&2
         exit 1
       fi
@@ -179,6 +271,34 @@ let
       # スラグは「ファイル名 + フルパスのハッシュ」。同名ファイル (別リポジトリの
       # README.md 同士など) が衝突しないようにしつつ、URL から中身が分かる形にする
       slug=$(printf '%s' "$(basename "$src")" | tr -c 'A-Za-z0-9._-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-6)
+
+      if [ -d "$src" ]; then
+        # ディレクトリモード: 配下の md は $slug/md/ に変換結果をミラーし、
+        # html や画像は $slug/src/ (symlink) から実体を配信する
+        slugdir=$root/$slug
+        mkdir -p "$slugdir/md"
+        ln -sfn "$src" "$slugdir/src"
+        url=$slug/
+        printf '%s\n%s\n' "$src" "$url" > "$meta/$slug"
+        generate_index
+        ensure_server
+        echo "ローカルのブラウザで開く: http://localhost:$port/$url"
+        echo "(一覧: http://localhost:$port/  監視を終えるには Ctrl-C。サーバーは残る)"
+        # entr の -d は監視中のディレクトリにファイルが増減すると一度終了するので、
+        # ループで再スキャンしてツリーと変換結果を作り直す。
+        # /_ は変更されたファイルのパスに置き換わる (変更分だけ再変換するため)
+        while :; do
+          generate_dir_index "$src" "$slugdir"
+          render_dir_all "$src" "$slugdir" "$refresh"
+          if ! list_files "$src" | grep -q .; then
+            sleep 2
+            continue
+          fi
+          list_files "$src" | sed "s|^|$src/|" \
+            | entr -nd "$0" --render-rel "$src" "$slugdir" "$refresh" /_ \
+            || true
+        done
+      fi
 
       case $src in
         *.md | *.markdown)
