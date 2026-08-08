@@ -76,17 +76,18 @@ herdr                    # サーバが無ければ起動し、クライアン�
 
 | やりたいこと | コマンド |
 | --- | --- |
-| 起動 / 再アタッチ | `herdr` (短縮エイリアス `hd`) |
+| 起動 / 再アタッチ | `herdr` (短縮入力 `hd`) |
 | 名前付きセッション | `herdr --session work` / `herdr session attach work` |
 | セッション一覧 | `herdr session list` |
 | クライアント / サーバの状態 | `herdr status` |
 | リモートのサーバに SSH 越しに繋ぐ | `herdr --remote <ssh-target>` |
 | サーバを使わず単体で動かす (退避用) | `herdr --no-session` |
 
-`hd` は `home/herdr.nix` で定義している fish / bash のエイリアスで、
-中身は `herdr` そのものです。引数はそのまま渡るので `hd session list` の
-ように使えます。alias なのでシェルスクリプト中の `hd` は効きません
-(スクリプトからは `herdr` と書いてください)。
+`hd` は `home/herdr.nix` で定義している fish の abbreviation で、
+Space か Enter で `herdr` に展開されます。`hd session list` のように
+続けて打てるのは alias と同じですが、履歴には展開後の `herdr ...` が残ります
+([fish-abbr.md](./fish-abbr.md) 2 章)。対話シェル専用なので
+シェルスクリプト中では効きません (スクリプトからは `herdr` と書いてください)。
 
 ### 再起動をまたぐ復元
 

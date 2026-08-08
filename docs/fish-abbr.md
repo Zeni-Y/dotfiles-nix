@@ -37,17 +37,18 @@ count (complete -C "herdr ")          # herdr 同梱の補完
 
 ### alias にも補完が引き継がれる
 
-`hd` (= `herdr`) のような alias も補完が効きます。Home Manager の
+`vi` (= `nvim`) のような alias も補完が効きます。Home Manager の
 `programs.fish.shellAliases` は fish の `alias` builtin を使うため、生成されるのは
 単なる別名ではなく `--wraps` 付きの関数だからです。
 
 ```fish
-function hd --wraps=herdr --description 'alias hd herdr'
-    herdr $argv
+function vi --wraps=nvim --description 'alias vi nvim'
+    nvim $argv
 end
 ```
 
-`--wraps=herdr` があるので、`hd <Tab>` は herdr の補完定義をそのまま使います。
+`--wraps=nvim` があるので、`vi <Tab>` は nvim の補完定義をそのまま使います。
+abbr の場合はそもそも展開後の実コマンドに対して補完が効くので、この仕組みは要りません。
 
 ---
 
@@ -108,7 +109,7 @@ hunk 単位の add や rebase の並べ替えのような込み入った操作�
 
 | 短縮 | 展開 |
 | --- | --- |
-| `hd` | `herdr` (これだけ alias) |
+| `hd` | `herdr` |
 | `hdl` | `herdr session list` |
 | `hda` | `herdr session attach` |
 | `hdc` | `herdr config check` |
