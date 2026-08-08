@@ -27,6 +27,7 @@
 | Nix の文法が読めない | [nix-concepts.md 1 章](./nix-concepts.md#1-nix-言語の基本構文) |
 | 外部ツールが書き換えた設定を Nix に取り込みたい | [nix-concepts.md 7 章](./nix-concepts.md#7-外部ツールによる変更を-nix-に取り込む) |
 | ターミナルで新しいタブ / ペイン / workspace を開きたい | [herdr.md 4 章](./herdr.md#4-基本操作-キーバインド) |
+| ペインの出力を遡りたい / コピーしたい | [herdr.md 5 章](./herdr.md#5-ペインの操作-分割スクロールコピー) |
 | セッションを残したままターミナルを閉じたい | [herdr.md 3 章](./herdr.md#3-起動デタッチ終了-ランタイムのライフサイクル) |
 | 複数の coding agent を並列に走らせたい | [git-worktree.md 8 章](./git-worktree.md#8-並列エージェント運用のレシピ) |
 | worktree をどこに置けばいいか (ghq との関係) | [git-worktree.md 5 章](./git-worktree.md#5-置き場所の設計--集約派と隔離派) |

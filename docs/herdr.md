@@ -15,10 +15,11 @@ Home Manager が `~/.config/herdr/config.toml` を生成します。
 2. [用語と階層](#2-用語と階層)
 3. [起動・デタッチ・終了 (ランタイムのライフサイクル)](#3-起動デタッチ終了-ランタイムのライフサイクル)
 4. [基本操作 (キーバインド)](#4-基本操作-キーバインド)
-5. [このリポジトリの設定](#5-このリポジトリの設定)
-6. [設定変更のライフサイクル](#6-設定変更のライフサイクル)
-7. [CLI から操作する](#7-cli-から操作する)
-8. [ハマりどころ](#8-ハマりどころ)
+5. [ペインの操作 (分割・スクロール・コピー)](#5-ペインの操作-分割スクロールコピー)
+6. [このリポジトリの設定](#6-このリポジトリの設定)
+7. [設定変更のライフサイクル](#7-設定変更のライフサイクル)
+8. [CLI から操作する](#8-cli-から操作する)
+9. [ハマりどころ](#9-ハマりどころ)
 
 ---
 
@@ -101,7 +102,7 @@ herdr                    # サーバが無ければ起動し、クライアン�
 **prefix は `Ctrl-q`** (herdr 既定は `Ctrl-b`)。
 以下はすべて「prefix を押してから」のキーです。
 一覧は起動後 **`prefix+?`** でいつでも出せます。
-prefix の選定理由とトレードオフは [8 章](#8-ハマりどころ) を参照。
+prefix の選定理由とトレードオフは [9 章](#9-ハマりどころ) を参照。
 
 ### タブ
 
@@ -129,17 +130,8 @@ prefix の選定理由とトレードオフは [8 章](#8-ハマりどころ) �
 
 ### ペイン
 
-| 操作 | キー |
-| --- | --- |
-| 縦分割 (右に開く) | `prefix+v` |
-| 横分割 (下に開く) | `prefix+-` |
-| 左 / 下 / 上 / 右のペインへ移動 | `prefix+h` / `prefix+j` / `prefix+k` / `prefix+l` |
-| 次 / 前のペインへ巡回 | `prefix+Tab` / `prefix+Shift+Tab` |
-| ペインをズーム (全画面トグル) | `prefix+z` |
-| リサイズモードに入る | `prefix+r` |
-| ペインを閉じる | `prefix+x` |
-| ペイン名を変更 | `prefix+Shift+p` |
-| スクロールバックを `$EDITOR` で開く | `prefix+e` |
+分割・移動・スクロール・コピーは項目が多いので [5 章](#5-ペインの操作-分割スクロールコピー)
+にまとめました。
 
 新しいペイン・タブ・workspace の cwd は `terminal.new_cwd = "follow"` により
 **元のペインのカレントディレクトリを引き継ぎます** (tmux の
@@ -156,12 +148,92 @@ prefix の選定理由とトレードオフは [8 章](#8-ハマりどころ) �
 | デタッチ | `prefix+q` |
 | 通知の発生元を開く | `prefix+o` |
 
-`prefix+e` の「スクロールバックを開く」は `$EDITOR` を使うので、この構成では
-nvim が開きます (`home/editors/neovim.nix` が `EDITOR=nvim` を設定)。
+---
+
+## 5. ペインの操作 (分割・スクロール・コピー)
+
+タブの中を分割した端末 1 つがペインです。以下のキーはすべて prefix (`Ctrl-q`) を
+押してからです。
+
+### 分割・移動・整理
+
+| 操作 | キー | 備考 |
+| --- | --- | --- |
+| 縦分割 (右に開く) | `prefix+v` | 設定キー名は `split_vertical` |
+| 横分割 (下に開く) | `prefix+-` | 設定キー名は `split_horizontal` |
+| 左 / 下 / 上 / 右のペインへ移動 | `prefix+h` / `prefix+j` / `prefix+k` / `prefix+l` | |
+| 次 / 前のペインへ巡回 | `prefix+Tab` / `prefix+Shift+Tab` | |
+| ペインを入れ替える | `prefix+Shift+h/j/k/l` | `swap_pane_*`。`herdr --default-config` にも `prefix+?` の一覧にも出てこない隠れ既定。右クリックメニューの「Swap with focused pane」と同じ |
+| ペインをズーム (全画面トグル) | `prefix+z` | |
+| リサイズモードに入る | `prefix+r` | 下記 |
+| ペインを閉じる | `prefix+x` | |
+| ペイン名を変更 | `prefix+Shift+p` | |
+| ナビゲートモード | `prefix+g` | 上下で workspace、`hjkl` でペイン |
+
+リサイズモード (`prefix+r`) に入るとステータス行が `RESIZE` に変わり、`h` / `l` で幅、
+`j` / `k` で高さを変えられます。`Esc` か `Enter` で抜けます。
+
+`ui.mouse_capture = true` (既定) なのでマウスでも操作できます。ペインの境界をドラッグ
+してリサイズ、右クリックでコンテキストメニュー (Split right / Split down / Close pane /
+Swap with focused pane など) が出ます。
+
+### スクロールとコピー
+
+| やりたいこと | 方法 |
+| --- | --- |
+| 少し遡る | マウスホイール (1 ノッチ `ui.mouse_scroll_lines` = 3 行) |
+| キーボードで遡る・コピーする | `prefix+[` で **copy mode** に入る |
+| 全部まとめて読む・検索する | `prefix+e` でスクロールバックを `$EDITOR` で開く |
+| マウスで選択してコピー | ドラッグ (copy mode に入らずコピーされる。`ui.copy_on_select = true`) |
+
+`prefix+e` は `$EDITOR` を使うので、この構成では nvim が開きます
+(`home/editors/neovim.nix` が `EDITOR=nvim` を設定)。
+
+**copy mode (`prefix+[`) のキー:**
+
+| 操作 | キー |
+| --- | --- |
+| カーソル移動 | `h` `j` `k` `l` |
+| 単語単位で移動 | `w` / `b` / `e` |
+| 段落単位で移動 | `{` / `}` |
+| 行頭 / 行末 | `0` / `^` / `$` (`Home` / `End` も可) |
+| **半画面 上 / 下** | `Ctrl-u` / `Ctrl-d` |
+| **1 画面 上 / 下** | `Ctrl-b` / `Ctrl-f` (`PageUp` / `PageDown` も可) |
+| **スクロールバックの先頭 / 末尾へ** | `g` / `G` |
+| 検索 (前方 / 後方) | `/` / `?` |
+| 次 / 前のマッチ | `n` / `N` |
+| 選択開始 (文字単位 / 行単位) | `v` または `Space` / `V` |
+| コピーして抜ける | `y` または `Enter` |
+| コピーせずに抜ける | `q` または `Esc` |
+
+検索はクエリに大文字が含まれない限り大文字小文字を無視します。
+
+`hjkl` は 1 行ずつのカーソル移動なので、**長い出力を遡るのは `Ctrl-u` / `Ctrl-b` /
+`g` の役目**です。ステータス行のヒント (`h/j/k/l w/b/e { } move …`) にはページング系が
+出てこないので気づきにくいところです。
+
+`Ctrl-b` がページアップとして使えるのは、この構成の prefix が `Ctrl-q` だからです。
+herdr 既定の `Ctrl-b` を prefix にしていると prefix モードに食われて使えません
+(英語版 [docs/keyboard/](https://herdr.dev/docs/keyboard/) に明記されています)。
+
+**copy mode が効かないケース**は [9 章](#9-ハマりどころ) を参照。フルスクリーン TUI の
+ペインではスクロールバック自体が存在しません。
+
+### CLI から
+
+スクリプトやエージェントからは socket API 経由でも操作できます ([8 章](#8-cli-から操作する))。
+ペインの中では `$HERDR_PANE_ID` が設定されているので、それを渡します。
+
+```bash
+herdr pane split --current --direction down --ratio 0.3
+herdr pane read "$HERDR_PANE_ID" --lines 200     # スクロールバックを読む
+herdr pane run "$HERDR_PANE_ID" cargo test       # ペインでコマンドを実行
+herdr pane current                               # 現在のペインの情報 (scroll 位置も出る)
+```
 
 ---
 
-## 5. このリポジトリの設定
+## 6. このリポジトリの設定
 
 `home/herdr.nix` の `programs.herdr.settings` がそのまま TOML になります。
 
@@ -185,7 +257,7 @@ herdr config check              # 今の config.toml を検証 (不明キーを�
 
 ---
 
-## 6. 設定変更のライフサイクル
+## 7. 設定変更のライフサイクル
 
 ```
 home/herdr.nix を編集
@@ -211,7 +283,7 @@ home/herdr.nix を編集
 
 ---
 
-## 7. CLI から操作する
+## 8. CLI から操作する
 
 herdr は動作中サーバをソケット API 経由で操作する CLI を持っています。
 スクリプトや AI エージェントから「タブを開く」「ペインにコマンドを流す」ができます。
@@ -220,8 +292,8 @@ herdr は動作中サーバをソケット API 経由で操作する CLI を持�
 herdr tab list
 herdr tab create --cwd ~/ghq/github.com/Zeni-Y/dotfiles-nix --label build --focus
 herdr pane split --current --direction down --ratio 0.3
-herdr pane run --current -- cargo test         # ペインでコマンドを実行
-herdr pane read --current                      # ペインの出力を読む
+herdr pane run "$HERDR_PANE_ID" cargo test     # ペインでコマンドを実行
+herdr pane read "$HERDR_PANE_ID"               # ペインの出力を読む
 herdr workspace create --cwd ~/ghq/some-repo --label some-repo --focus
 herdr worktree create --branch feature/x --base main --focus
 herdr agent list                               # 検出されたエージェントの状態
@@ -229,6 +301,13 @@ herdr agent list                               # 検出されたエージェン�
 
 サブコマンドの一覧は `herdr --help`、各コマンドの引数は
 `herdr <group> <command> --help` で確認できます。
+
+**`--current` を受け付けるのは一部のコマンドだけ**です。`pane split` / `focus` /
+`zoom` / `swap` / `resize` / `layout` / `current` は受け付けますが、
+`pane read` / `run` / `get` / `close` / `move` / `rename` は位置引数の `<PANE_ID>` が必須で、
+`--current` と書くと `pane_not_found` になります。ペインの中では
+`$HERDR_PANE_ID` / `$HERDR_TAB_ID` / `$HERDR_WORKSPACE_ID` が設定されているので
+それを渡すのが確実です。
 
 ### エージェント連携 (任意)
 
@@ -246,7 +325,7 @@ herdr integration install claude  # ~/.claude/hooks/herdr-agent-state.sh を置�
 
 ---
 
-## 8. ハマりどころ
+## 9. ハマりどころ
 
 - **`herdr update` は使わない**。herdr の実体は Nix store 上の読み取り専用バイナリ
   (`~/.nix-profile/bin/herdr` → `/nix/store/...`) なので自己更新できません。
@@ -265,7 +344,22 @@ herdr integration install claude  # ~/.claude/hooks/herdr-agent-state.sh を置�
   **設定を足したら `herdr config check` で不明キーが無いか確認する**のが確実です。
 - **herdr のペインの中から `herdr` を起動できない**。`experimental.allow_nested`
   が既定で `false` のため。ネストしたいときだけ明示的に有効化します。
-- **設定画面 (`prefix+s`) の変更は保存できない** (上記 6 章)。
+- **設定画面 (`prefix+s`) の変更は保存できない** (上記 7 章)。
+- **フルスクリーン TUI のペインは copy mode で遡れない**。代替スクリーン
+  (alternate screen) を使うアプリはスクロールバックを持たないので、`prefix+[` に
+  入っても今表示されている 1 画面ぶんしか動けません。**Claude Code は
+  `/tui default` に切り替えると遡れるようになります** (`/tui <default|fullscreen>`)。
+  普通の fish のペインなら最初から効くので、まずそちらで切り分けると早いです。
+- **copy mode に入ってもペインのプロセスは止まらない**。新しい出力が来ると表示は
+  最下部に追従します (履歴に入っている間は位置を保持)。これは仕様で、
+  [herdrdev/herdr#680](https://github.com/herdrdev/herdr/issues/680) は
+  `expected-behavior` として not planned で閉じられています。出力が流れ続けるペインを
+  落ち着いて読むなら `prefix+e` で nvim に落とすのが確実です。
+- **日本語ドキュメントは英語版より内容が古い**。たとえば
+  [ja/docs/keyboard/](https://herdr.dev/ja/docs/keyboard/) の copy mode の説明には
+  `PageUp` / `PageDown` / `Ctrl-b` / `Ctrl-f` / `Ctrl-u` / `Ctrl-d` が載っていませんが、
+  英語版 [docs/keyboard/](https://herdr.dev/docs/keyboard/) には載っており実際に動きます。
+  キーの一次情報は英語版か `prefix+?` を見てください。
 - **バージョンチェックのために herdr.dev へ通信する** (`update.version_check` /
   `update.manifest_check` が既定 `true`)。オフライン環境や外部通信を切りたい場合は
   `home/herdr.nix` に次を足します。
