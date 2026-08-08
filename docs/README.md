@@ -10,6 +10,7 @@
 | [herdr.md](./herdr.md) | [herdr](https://herdr.dev/) (ターミナルマルチプレクサ) の使い方・キーバインド・設定の反映フロー |
 | [lazyvim.md](./lazyvim.md) | Neovim + [LazyVim](https://www.lazyvim.org/) の使い方・Nix との責務分担・プラグインのライフサイクル |
 | [git-worktree.md](./git-worktree.md) | git worktree のライフサイクル・ghq / herdr / Claude Code との住み分け・並列エージェント運用 |
+| [claude-code.md](./claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と、Nix での配り方 |
 | [fish-abbr.md](./fish-abbr.md) | fish の補完がどこから来ているか・短縮入力 (abbreviation) の一覧と足し方 |
 | [fish-nix-path.md](./fish-nix-path.md) | fish に Nix の PATH が通る仕組みと、このリポジトリでの扱い |
 | [ref-tips/](./ref-tips/) | 他の dotfiles から取り入れる候補のチェックリスト |
@@ -32,6 +33,9 @@
 | clone と worktree を `~/ghq` に集約したい (gwq) | [git-worktree.md 7 章](./git-worktree.md#7-集約派で揃える--gwq-と-herdr-を合わせる) |
 | worktree を消したのにブランチが残る / 消せない | [git-worktree.md 4 章](./git-worktree.md#4-ライフサイクル-素の-git) |
 | リポジトリ / worktree に手早く移動したい (`dev`, `gwq cd`) | [git-worktree.md 7-3 章](./git-worktree.md#7-3-移動を作る--シェル統合と-dev) |
+| Claude Code に毎回同じ指示を出さずに済ませたい | [claude-code.md 2 章](./claude-code.md#2-指示ファイルの階層) |
+| 共通ルールを足したい / どこに書くか迷う | [claude-code.md 4 章](./claude-code.md#4-このリポジトリでの配り方) / [5 章](./claude-code.md#5-ルールを足す直す手順) |
+| `~/.claude/CLAUDE.md` が編集できない | [claude-code.md 8 章](./claude-code.md#8-ハマりどころ) |
 | `gst` などの短縮入力が何に展開されるのか | [fish-abbr.md 3 章](./fish-abbr.md#3-定義済み-abbreviation-一覧) (実行時は `abbr --show`) |
 | コマンドのオプション候補がどこから出ているのか | [fish-abbr.md 1 章](./fish-abbr.md#1-補完はほぼ何もしなくても効く) |
 | エディタのキー操作を知りたい | [lazyvim.md 4 章](./lazyvim.md#4-基本操作) |

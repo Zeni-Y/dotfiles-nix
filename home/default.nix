@@ -15,6 +15,11 @@
     ./editors
     ./cli
 
+    # Claude Code。バイナリだけでなく ~/.claude/CLAUDE.md と
+    # ~/.claude/rules/ (全プロジェクト共通の指示) も配るため、
+    # Markdown を同居させたディレクトリモジュールにしている。
+    ./claude-code
+
     ./git.nix
     ./herdr.nix
     ./wezterm.nix
