@@ -12,7 +12,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 - **対象 OS は Linux のみ**。Docker コンテナ内での利用も想定します。
   macOS (nix-darwin / Homebrew) は対象外です。
   Windows では **WSL2 の Ubuntu** を Linux 実機と同じ扱いで使えます
-  (手順は [docs/wsl2.md](docs/wsl2.md))。
+  (手順は [docs/setup/wsl2.md](docs/setup/wsl2.md))。
 - **`sudo` が使えることが前提**。Nix は `/nix` にインストールする
   通常の (multi-user) 構成のみをサポートします。
 - **`nix-portable` は使いません**。`sudo` が使えない環境は考慮しないので、
@@ -22,12 +22,12 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 >
 > | ドキュメント | 内容 |
 > | --- | --- |
-> | [docs/nix-concepts.md](docs/nix-concepts.md) | Nix の構文・概念・Home Manager のライフサイクル |
-> | [docs/wsl2.md](docs/wsl2.md) | Windows (WSL2) でのセットアップ手順・Docker との使い分け |
-> | [docs/herdr.md](docs/herdr.md) | herdr の使い方 (タブ / ペイン / workspace)・キーバインド・設定の反映フロー |
-> | [docs/lazyvim.md](docs/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
-> | [docs/claude-code.md](docs/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と Nix での配り方 |
-> | [docs/fish-nix-path.md](docs/fish-nix-path.md) | fish に Nix の PATH が通る仕組み |
+> | [docs/nix/nix-concepts.md](docs/nix/nix-concepts.md) | Nix の構文・概念・Home Manager のライフサイクル |
+> | [docs/setup/wsl2.md](docs/setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・Docker との使い分け |
+> | [docs/terminal/herdr.md](docs/terminal/herdr.md) | herdr の使い方 (タブ / ペイン / workspace)・キーバインド・設定の反映フロー |
+> | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
+> | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と Nix での配り方 |
+> | [docs/shell/fish-nix-path.md](docs/shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組み |
 
 ---
 
@@ -48,17 +48,17 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 | トピック | 中身 |
 | --- | --- |
-| シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト)・git / herdr / home-manager の短縮入力 ([abbreviation](docs/fish-abbr.md)) |
+| シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト)・git / herdr / home-manager の短縮入力 ([abbreviation](docs/shell/fish-abbr.md)) |
 | Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
 | ターミナル | [herdr](https://herdr.dev/) (prefix `C-q`, セッション永続化, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
 | エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi |
-| リポジトリ / worktree | ghq + gwq — clone も worktree も `~/ghq` に集約。`dev` で fzf 移動、`gwq add` / `gwq cd` は現在のシェルごと移動する ([docs/git-worktree.md](docs/git-worktree.md)) |
-| コーディングエージェント | Claude Code 本体と、全プロジェクト共通の指示 (`~/.claude/CLAUDE.md` / `~/.claude/rules/`) を宣言的に配布 ([docs/claude-code.md](docs/claude-code.md)) |
+| リポジトリ / worktree | ghq + gwq — clone も worktree も `~/ghq` に集約。`dev` で fzf 移動、`gwq add` / `gwq cd` は現在のシェルごと移動する ([docs/git/git-worktree.md](docs/git/git-worktree.md)) |
+| コーディングエージェント | Claude Code 本体と、全プロジェクト共通の指示 (`~/.claude/CLAUDE.md` / `~/.claude/rules/`) を宣言的に配布 ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md)) |
 
 日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は
-[docs/herdr.md](docs/herdr.md) と [docs/lazyvim.md](docs/lazyvim.md) にまとめている。
-シェルの補完と短縮入力については [docs/fish-abbr.md](docs/fish-abbr.md)。
+[docs/terminal/herdr.md](docs/terminal/herdr.md) と [docs/editor/lazyvim.md](docs/editor/lazyvim.md) にまとめている。
+シェルの補完と短縮入力については [docs/shell/fish-abbr.md](docs/shell/fish-abbr.md)。
 
 ---
 
@@ -141,7 +141,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | `sudo` が使えない | **サポート外**。エラーで停止する |
 
 WSL2 は既定で systemd が無効なので、そのまま実行すると 2 行目の経路になる。
-`/etc/wsl.conf` で有効にしてから実行すること (→ [docs/wsl2.md](docs/wsl2.md#3-systemd-を有効化する))。
+`/etc/wsl.conf` で有効にしてから実行すること (→ [docs/setup/wsl2.md](docs/setup/wsl2.md#3-systemd-を有効化する))。
 
 systemd の有無は自動判定するが、明示したい場合は:
 
@@ -176,7 +176,7 @@ Docker コンテナ内での利用は今後も想定するが、その場合も
 
 ## 初回セットアップ
 
-> **Windows の場合**: 先に [docs/wsl2.md](docs/wsl2.md) で WSL2 の Ubuntu を用意してください
+> **Windows の場合**: 先に [docs/setup/wsl2.md](docs/setup/wsl2.md) で WSL2 の Ubuntu を用意してください
 > (ユーザー名を `userInfo.username` に揃える・systemd を有効にする・リポジトリを
 > `~/ghq/github.com/Zeni-Y/dotfiles-nix` に置く)。その後は以下の手順に合流します。
 
@@ -261,7 +261,7 @@ home-manager generations
 
 上のコマンドには fish の短縮入力を用意している (`hms` / `nfu` / `nfc` / `hmg`)。
 展開後の完全なコマンドが表示されるので、`-b backup` のようなフラグは
-展開してから書き足せる。一覧と足し方は [docs/fish-abbr.md](docs/fish-abbr.md)。
+展開してから書き足せる。一覧と足し方は [docs/shell/fish-abbr.md](docs/shell/fish-abbr.md)。
 
 ---
 
@@ -282,7 +282,7 @@ git ペイン) を得るために、Neovim に [LazyVim](https://www.lazyvim.org
 
 `<leader>` は Space。`<leader>` を押して少し待てば which-key がキー一覧を出す。
 バッファ / ウィンドウ / タブページの使い分けを含む詳細は
-**[docs/lazyvim.md](docs/lazyvim.md)** を参照。
+**[docs/editor/lazyvim.md](docs/editor/lazyvim.md)** を参照。
 
 ### 管理の分担
 
@@ -342,7 +342,7 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   `programs.herdr.settings`。switch すると `~/.config/herdr/config.toml` が
   張り替わり、`herdr server reload-config` が自動で走る。
   設定できる項目は `herdr --default-config`、検証は `herdr config check`。
-  詳細は [docs/herdr.md](docs/herdr.md)。
+  詳細は [docs/terminal/herdr.md](docs/terminal/herdr.md)。
 - **新しい CLI ツールを足したい** → `home/packages.nix` の `home.packages` に追加。
   シェル統合が必要なものは `home/cli/<name>.nix` を作って `home/cli/default.nix` で imports する。
 - **fish のプラグインを足したい** → `home/shell/fish.nix` の `plugins` に
@@ -356,7 +356,7 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   (方針) か `home/claude-code/rules/<topic>.md` (トピック別) に書いて `git add`。
   switch すると `~/.claude/CLAUDE.md` と `~/.claude/rules/` に配られる。
   リポジトリ固有の指示は各リポジトリの `CLAUDE.md` / `.claude/rules/` 側に置く。
-  詳細は [docs/claude-code.md](docs/claude-code.md)。
+  詳細は [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md)。
 - **マシンを増やしたい** → `hosts/<name>.nix` を作り、`flake.nix` の outputs に登録。
 
 ---
@@ -397,11 +397,11 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   その場で編集したり Claude Code の `#` で書き足したりはできない。共通ルールを直すときは
   `home/claude-code/` 側を編集して `git add` → `home-manager switch`。
   逆に `~/.claude/settings.json` と auto memory は Claude Code 自身が書くファイルなので
-  **意図的に Nix 管理外**にしてある ([docs/claude-code.md](docs/claude-code.md))。
+  **意図的に Nix 管理外**にしてある ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md))。
 - **`herdr update` は使わない**。herdr の実体は Nix store 上の読み取り専用バイナリなので
   自己更新できない。バージョンは flake.lock で固定されているので、
   `nix flake update` → `home-manager switch` で上げる。
-  herdr 設定の反映フローとキーバインドは [docs/herdr.md](docs/herdr.md)。
+  herdr 設定の反映フローとキーバインドは [docs/terminal/herdr.md](docs/terminal/herdr.md)。
 - **`pkgs.fishPlugins` にないプラグイン**を使いたい場合は `fetchFromGitHub` で src を固定する
   (詳細は `home/shell/fish.nix` のコメント参照)。
 - **fish_plugins (fisher)** をリポジトリに残しても Nix 管理下では機能しないので消して良い。

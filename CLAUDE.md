@@ -62,14 +62,14 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 
 | 症状 / 知りたいこと | 参照先 |
 | --- | --- |
-| Nix の文法・flake・Home Manager のライフサイクル | [docs/nix-concepts.md](docs/nix-concepts.md) |
-| `Existing file ... would be clobbered` | [nix-concepts.md 7 章](docs/nix-concepts.md#7-外部ツールによる変更を-nix-に取り込む) |
-| worktree / 並列エージェント / ghq・gwq の住み分け | [docs/git-worktree.md](docs/git-worktree.md) |
-| Claude Code の指示ファイルの階層と配り方 | [docs/claude-code.md](docs/claude-code.md) |
-| `hms` などの短縮入力の展開先 | [docs/fish-abbr.md](docs/fish-abbr.md) (実行時は `abbr --show`) |
-| ターミナル (herdr) のキーバインド・設定反映 | [docs/herdr.md](docs/herdr.md) |
-| Neovim / LazyVim の責務分担 | [docs/lazyvim.md](docs/lazyvim.md) |
-| Windows (WSL2) のセットアップ | [docs/wsl2.md](docs/wsl2.md) |
+| Nix の文法・flake・Home Manager のライフサイクル | [docs/nix/nix-concepts.md](docs/nix/nix-concepts.md) |
+| `Existing file ... would be clobbered` | [nix-concepts.md 7 章](docs/nix/nix-concepts.md#7-外部ツールによる変更を-nix-に取り込む) |
+| worktree / 並列エージェント / ghq・gwq の住み分け | [docs/git/git-worktree.md](docs/git/git-worktree.md) |
+| Claude Code の指示ファイルの階層と配り方 | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) |
+| `hms` などの短縮入力の展開先 | [docs/shell/fish-abbr.md](docs/shell/fish-abbr.md) (実行時は `abbr --show`) |
+| ターミナル (herdr) のキーバインド・設定反映 | [docs/terminal/herdr.md](docs/terminal/herdr.md) |
+| Neovim / LazyVim の責務分担 | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) |
+| Windows (WSL2) のセットアップ | [docs/setup/wsl2.md](docs/setup/wsl2.md) |
 | コンテナで `nix-daemon` が落ちている / UID 不一致 | [docker/debug/README.md](docker/debug/README.md#よくあるエラーと対処) |
 | その他の既知の罠 | [README.md「既知のハマりどころ」](README.md#既知のハマりどころ) |
 

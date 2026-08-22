@@ -13,7 +13,7 @@ let
   # config 経由で拾い、ホスト側の "ubuntu" だけ直書きする。
   #
   # パスは ghq の標準レイアウト (<root>/<host>/<owner>/<repo>)。
-  # worktree を同じ root に集約するため (docs/git-worktree.md 7 章)、
+  # worktree を同じ root に集約するため (docs/git/git-worktree.md 7 章)、
   # ここは host/owner を含んだ形でなければならない。
   # GitHub の owner (Zeni-Y) は userInfo.username (zenimoto) と綴りが違うので
   # config からは導けず、ホスト名の "ubuntu" と同様に直書きしている。

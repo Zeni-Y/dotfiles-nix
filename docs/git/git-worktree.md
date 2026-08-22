@@ -339,7 +339,7 @@ Available Commands:
 設定の実測値は [7 章](#7-集約派で揃える--gwq-と-herdr-を合わせる)。
 
 > `gwq tmux` は長時間処理用の tmux セッション管理ですが、この構成の
-> マルチプレクサは herdr なので使いません ([herdr.md](./herdr.md))。
+> マルチプレクサは herdr なので使いません ([herdr.md](../terminal/herdr.md))。
 
 > **`buildGoModule` で自前パッケージ化する記事を見かけたら**: それは gwq が
 > まだ nixpkgs に入っていなかった頃 (v0.0.5) の話です。現在は `pkgs.gwq` で足り、
@@ -453,10 +453,10 @@ ghq migrate github.com/<owner>/<repo>
 | 場所 | 内容 |
 | --- | --- |
 | `home/shell/fish.nix` の `flakeDir` | `hms` / `nfc` / `nfu` の展開先。**ここが唯一の実コード参照** |
-| `docs/fish-abbr.md` | abbreviation 一覧に載っているパス |
-| `docs/herdr.md` | CLI の例に出てくるパス |
+| `docs/shell/fish-abbr.md` | abbreviation 一覧に載っているパス |
+| `docs/terminal/herdr.md` | CLI の例に出てくるパス |
 
-`docs/wsl2.md` の手順も新レイアウトに揃えてあります。
+`docs/setup/wsl2.md` の手順も新レイアウトに揃えてあります。
 
 ghq の root は git-config でも指定できます (現状は `home/cli/ghq.nix` の
 `home.sessionVariables.GHQ_ROOT`)。どちらか一方で十分です。
@@ -511,7 +511,7 @@ gwq add -b feature/deep/y  →  ~/ghq/github.com/shunk031/app=feature-deep-y
 > gwq を実行していると、その実ファイルが残って
 > `Existing file ... would be clobbered` で **switch 全体が失敗します**。
 > `home/cli/gwq.nix` では `force = true` で恒久的に潰してあります
-> (経緯は [nix-concepts.md 7-7 章](nix-concepts.md#7-7-例外-まだ-nix-管理下に無い実ファイルは上書きされず-switch-が止まる))。
+> (経緯は [nix-concepts.md 7-7 章](../nix/nix-concepts.md#7-7-例外-まだ-nix-管理下に無い実ファイルは上書きされず-switch-が止まる))。
 
 ### 7-3. 移動を作る — シェル統合と `dev`
 
@@ -724,7 +724,7 @@ herdr agent read <target>              # 出力を読む
 状態表示を有効にするには統合の導入が必要です
 (`herdr integration install claude`)。ただし置き先の `~/.claude/hooks/` は
 Home Manager の管理外なので、恒久運用するなら `home/` 配下で `home.file` として
-宣言し直してください ([herdr.md 8 章](./herdr.md#8-cli-から操作する))。
+宣言し直してください ([herdr.md 8 章](../terminal/herdr.md#8-cli-から操作する))。
 
 ### 8-3. Claude Code に任せる (見張らない場合)
 
@@ -864,7 +864,7 @@ nix-direnv のキャッシュ (`.direnv/`) も worktree ごとに作られるた
   で止まります (この構成でも導入時に実際に踏みました)。
   **対策済み**: `home/cli/gwq.nix` で `force = true` を宣言しているので、
   別のマシンで構築するときも止まりません
-  ([nix-concepts.md 7-7](./nix-concepts.md#7-7-例外-まだ-nix-管理下に無い実ファイルは上書きされず-switch-が止まる))。
+  ([nix-concepts.md 7-7](../nix/nix-concepts.md#7-7-例外-まだ-nix-管理下に無い実ファイルは上書きされず-switch-が止まる))。
   なお **gwq 側は既存ファイルを勝手に上書きしません**。Nix の symlink が
   張られた後は、gwq を何度実行してもそのままです (実測)。
 - **新しい `.nix` ファイルを足したら `git add` するまで flake から見えない。**
@@ -896,7 +896,7 @@ nix-direnv のキャッシュ (`.direnv/`) も worktree ごとに作られるた
   `herdr workspace close w6` です (`worktree remove` の方は `--workspace` を取るので紛らわしい)。
 - **ghq の標準レイアウトへ移行すると flake のパスが変わる。**
   `home/shell/fish.nix` の `flakeDir` が唯一の実コード参照で、`hms` / `nfc` / `nfu` は
-  そこから組み立てられます。この Ubuntu ホストも `docs/wsl2.md` の手順も移行済み
+  そこから組み立てられます。この Ubuntu ホストも `docs/setup/wsl2.md` の手順も移行済み
   ([7-1](#7-1-前提-ghq-の標準レイアウトであること-移行済み))。
   **fork して別 owner にするなら `flakeDir` の `Zeni-Y` も直すこと。**
   owner 名は `userInfo.username` (zenimoto) と綴りが違うので自動導出できません。
@@ -908,9 +908,9 @@ nix-direnv のキャッシュ (`.direnv/`) も worktree ごとに作られるた
 
 ## 関連ドキュメント
 
-- [herdr.md](./herdr.md) — workspace / ペイン操作と CLI (`herdr worktree` はその一部)
-- [nix-concepts.md](./nix-concepts.md) — flake と Home Manager のライフサイクル
-- [fish-abbr.md](./fish-abbr.md) — `hms` などの abbreviation (集約派移行時に要修正)
-- [ref-tips/03-git.md](./ref-tips/03-git.md) — `wta` / `wtb` / `wtd` など worktree ラッパーの導入候補
+- [herdr.md](../terminal/herdr.md) — workspace / ペイン操作と CLI (`herdr worktree` はその一部)
+- [nix-concepts.md](../nix/nix-concepts.md) — flake と Home Manager のライフサイクル
+- [fish-abbr.md](../shell/fish-abbr.md) — `hms` などの abbreviation (集約派移行時に要修正)
+- [ref-tips.md](./ref-tips.md) — `wta` / `wtb` / `wtd` など worktree ラッパーの導入候補
 - 一次情報: `git help worktree` / `herdr worktree --help` / `gwq --help` /
   <https://code.claude.com/docs/en/worktrees>

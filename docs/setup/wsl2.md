@@ -44,8 +44,8 @@ Windows 上でこのリポジトリの環境を再現する手順です。
 
 Docker 側を使うのは次のようなときです (WSL2 の中で Docker を動かせるので排他ではありません):
 
-- `scripts/setup.sh` の変更をまっさらな状態から何度も検証したい → [`docker/debug`](../docker/debug/README.md)
-- リモートに置く常駐開発環境を作りたい → [`docker/working`](../docker/working/README.md)
+- `scripts/setup.sh` の変更をまっさらな状態から何度も検証したい → [`docker/debug`](../../docker/debug/README.md)
+- リモートに置く常駐開発環境を作りたい → [`docker/working`](../../docker/working/README.md)
 
 ---
 
@@ -164,13 +164,13 @@ flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
 ```
 
 `hms` / `nfu` / `nfc` などの abbreviation はこの `flakeRef` に展開されるので、
-別の場所に置くと展開先が実在せず落ちます (→ [docs/fish-abbr.md](./fish-abbr.md))。
+別の場所に置くと展開先が実在せず落ちます (→ [docs/shell/fish-abbr.md](../shell/fish-abbr.md))。
 **別の owner に fork した場合は `flakeDir` の `Zeni-Y` も直してください**
 (GitHub の owner 名は `userInfo.username` と綴りが違うので自動では導けません)。
 
 host/owner の階層まで含めた形にしているのは、git worktree を同じ `~/ghq` に
 集約して `ghq list | fzf` 一発で行き来できるようにするためです
-(→ [docs/git-worktree.md 7 章](./git-worktree.md#7-集約派で揃える--gwq-と-herdr-を合わせる))。
+(→ [docs/git/git-worktree.md 7 章](../git/git-worktree.md#7-集約派で揃える--gwq-と-herdr-を合わせる))。
 Nix と ghq が入った後なら、2 台目以降は次でも取得できます。
 
 ```bash
@@ -268,7 +268,7 @@ which nvim herdr # Nix store のパスが返る
 ```
 
 以降の運用 (`hms` / `nfu` / 世代の切り戻しなど) は
-[README の「日々の運用」](../README.md#日々の運用) に合流します。
+[README の「日々の運用」](../../README.md#日々の運用) に合流します。
 
 ---
 
@@ -344,7 +344,7 @@ swap=8GB
 - **`opening lock file ".../big-lock": Permission denied`**。
   `nix-daemon` が動いていないサインです。systemd 構成なら
   `sudo systemctl start nix-daemon`、そうでなければ README の
-  [既知のハマりどころ](../README.md#既知のハマりどころ) を参照。
+  [既知のハマりどころ](../../README.md#既知のハマりどころ) を参照。
 
 - **Windows の PATH が混ざる**。
   WSL は既定で Windows の `PATH` を継ぎ足すので、`node` や `python` が Windows 側の
@@ -366,7 +366,7 @@ swap=8GB
   跡地に Nix store への symlink が張られます。systemd 構成なら Nix の PATH は
   `/etc/profile.d/` 経由で通り、fish は `home/shell/fish.nix` の `shellInit` で
   明示的に通しているので、どちらも影響を受けません
-  (→ [docs/fish-nix-path.md](./fish-nix-path.md))。
+  (→ [docs/shell/fish-nix-path.md](../shell/fish-nix-path.md))。
 
 - **ディスクが減らない**。
   WSL2 の仮想ディスク (`ext4.vhdx`) は自動で拡張されますが**自動では縮みません**。
@@ -406,4 +406,4 @@ wsl --install -d Ubuntu-24.04
 Linux 側の設定だけ作り直したい場合は、WSL を消す必要はありません。
 Home Manager の世代を戻すか、`~/.config/nvim` などの Nix 管理外ディレクトリを
 消して `home-manager switch` し直します
-(→ [README の既知のハマりどころ](../README.md#既知のハマりどころ))。
+(→ [README の既知のハマりどころ](../../README.md#既知のハマりどころ))。

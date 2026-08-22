@@ -1,12 +1,12 @@
-# 04. Neovim — keymap / mini.nvim / プラグイン管理
+# ref-tips: Neovim — keymap / mini.nvim / プラグイン管理
 
-現状は **Neovim + LazyVim** 構成 (→ [docs/lazyvim.md](../lazyvim.md))。
+現状は **Neovim + LazyVim** 構成 (→ [docs/editor/lazyvim.md](./lazyvim.md))。
 `home/editors/neovim.nix` が持つのは本体と外部コマンドだけで、設定とプラグインは
 `~/.config/nvim/` (Nix 管理外) にある。以下はそこに足す候補。
 
 > **注意**: 下の項目には `programs.neovim.extraLuaConfig` を実装先に挙げたものが
 > あるが、現構成では `programs.neovim` を使っていない
-> (理由は [docs/lazyvim.md 1 章](../lazyvim.md#1-責務の分担))。
+> (理由は [docs/editor/lazyvim.md 1 章](./lazyvim.md#1-責務の分担))。
 > 実際の実装先は `~/.config/nvim/lua/config/keymaps.lua` などになる。
 
 ## キーマップ (ryoppippi)

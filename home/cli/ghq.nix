@@ -10,7 +10,7 @@
 
   # clone 先。gwq の worktree.basedir (home/cli/gwq.nix) と同じ値にすること。
   # 両者を揃えることで `ghq list` に本体と worktree の両方が並び、
-  # 下の dev から一つの UI で行き来できる (docs/git-worktree.md 7 章)。
+  # 下の dev から一つの UI で行き来できる (docs/git/git-worktree.md 7 章)。
   #
   # home.sessionVariables は hm-session-vars 経由で bash にも fish にも
   # 届くので、シェルごとに書く必要は無い。

@@ -1,4 +1,6 @@
-# 02. Shell — zsh / zeno (発想を fish に移植する)
+# ref-tips: Shell — zsh / zeno (発想を fish に移植する)
+
+> **archive**: 現構成では使っていないツールの候補集。退避の経緯は [README.md](./README.md) を参照。
 
 主に `ref/kawarimidoll-dotfiles/.config/zeno/` 由来。  
 自分は fish 主体なので、ここでは「アイデア」を抽出して fish の `abbr` / `bind` で代替する形を想定する。

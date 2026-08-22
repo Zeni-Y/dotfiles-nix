@@ -144,7 +144,7 @@ Neovim の「タブ」は VS Code のタブとは意味が違います。ここ�
 
 日常的に使うのはバッファとウィンドウで、タブページはあまり使いません。
 「作業一式を切り替えたい」なら、Neovim のタブページより
-**herdr のタブ / workspace** ([docs/herdr.md](./herdr.md)) を使うほうが素直です。
+**herdr のタブ / workspace** ([docs/terminal/herdr.md](../terminal/herdr.md)) を使うほうが素直です。
 
 ### よく使うキー
 

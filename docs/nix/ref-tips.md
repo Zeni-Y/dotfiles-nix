@@ -1,4 +1,4 @@
-# 08. Nix Tooling — overlays / git-hooks.nix / agent-skills-nix
+# ref-tips: Nix Tooling — overlays / git-hooks.nix / agent-skills-nix
 
 `ref/ryoppippi-dotfiles/nix/modules/` 由来。Nix エコシステム強化案。
 

@@ -1,4 +1,4 @@
-# 01. Shell — fish (abbr / functions / key bindings)
+# ref-tips: Shell — fish (abbr / functions / key bindings)
 
 主に `ref/ryoppippi-dotfiles/fish/` 由来。abbr は補完が効くので alias より優先。
 

@@ -7,7 +7,7 @@
 #
 # ここで配るのは **全プロジェクト共通 (user スコープ) の指示だけ**。
 # リポジトリ固有の指示は各リポジトリの CLAUDE.md / .claude/rules/ に置く。
-# 階層と使い分けは docs/claude-code.md を参照。
+# 階層と使い分けは docs/claude-code/claude-code.md を参照。
 #
 # home/cli/ ではなくトップレベルに置いているのは、シェル統合を持つ CLI
 # ではなく「設定ツリー (Markdown) を配るモジュール」だから

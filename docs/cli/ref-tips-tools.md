@@ -1,4 +1,4 @@
-# 09. CLI Tools (delta, bit, comma, lazygit, dust 他)
+# ref-tips: CLI Tools (delta, bit, comma, lazygit, dust 他)
 
 `home/packages.nix` / `home/cli/` 配下に追加する候補。
 

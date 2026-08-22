@@ -1,4 +1,4 @@
-# 06. Claude Code — CLAUDE.md / agents / skills / hooks
+# ref-tips: Claude Code — CLAUDE.md / agents / skills / hooks
 
 両 dotfiles ともに最も作り込みが進んでいる領域。  
 グローバル `~/.config/claude/` への配布を Nix 化するのが理想。
