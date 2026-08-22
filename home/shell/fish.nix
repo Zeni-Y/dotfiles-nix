@@ -82,7 +82,11 @@ in
     #   herdr  → home/herdr.nix
     # ─────────────────────────────────────────────────────────
     shellAbbrs = {
-      hms = "home-manager switch --flake ${flakeRef}";
+      # hms だけは絶対パスではなく `.` を参照する。適用はリポジトリに
+      # cd してから行う運用なので、worktree など「いま居るチェックアウト」を
+      # そのまま適用できる方が意図と一致する。username は userInfo から
+      # config 経由で流れてくるので直書きしない。
+      hms = "home-manager switch --flake .#${config.home.username}@ubuntu";
       hmn = "home-manager news --flake ${flakeRef}";
       hmg = "home-manager generations --flake ${flakeRef}";
 

@@ -163,8 +163,9 @@ flakeDir = "${config.home.homeDirectory}/ghq/github.com/Zeni-Y/dotfiles-nix";
 flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
 ```
 
-`hms` / `nfu` / `nfc` などの abbreviation はこの `flakeRef` に展開されるので、
-別の場所に置くと展開先が実在せず落ちます (→ [docs/shell/fish-abbr.md](../shell/fish-abbr.md))。
+`hmn` / `nfu` / `nfc` などの abbreviation はこの `flakeDir` / `flakeRef` に展開されるので、
+別の場所に置くと展開先が実在せず落ちます
+(`hms` は `.` を参照するため、リポジトリに cd してから使います) (→ [docs/shell/fish-abbr.md](../shell/fish-abbr.md))。
 **別の owner に fork した場合は `flakeDir` の `Zeni-Y` も直してください**
 (GitHub の owner 名は `userInfo.username` と綴りが違うので自動では導けません)。
 

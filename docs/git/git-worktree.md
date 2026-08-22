@@ -452,7 +452,7 @@ ghq migrate github.com/<owner>/<repo>
 
 | 場所 | 内容 |
 | --- | --- |
-| `home/shell/fish.nix` の `flakeDir` | `hms` / `nfc` / `nfu` の展開先。**ここが唯一の実コード参照** |
+| `home/shell/fish.nix` の `flakeDir` | `hmn` / `hmg` / `nfc` / `nfu` の展開先。**ここが唯一の実コード参照** |
 | `docs/shell/fish-abbr.md` | abbreviation 一覧に載っているパス |
 | `docs/terminal/herdr.md` | CLI の例に出てくるパス |
 
@@ -895,7 +895,7 @@ nix-direnv のキャッシュ (`.direnv/`) も worktree ごとに作られるた
 - **`herdr workspace close` は位置引数。** `--workspace w6` ではなく
   `herdr workspace close w6` です (`worktree remove` の方は `--workspace` を取るので紛らわしい)。
 - **ghq の標準レイアウトへ移行すると flake のパスが変わる。**
-  `home/shell/fish.nix` の `flakeDir` が唯一の実コード参照で、`hms` / `nfc` / `nfu` は
+  `home/shell/fish.nix` の `flakeDir` が唯一の実コード参照で、`hmn` / `nfc` / `nfu` は
   そこから組み立てられます。この Ubuntu ホストも `docs/setup/wsl2.md` の手順も移行済み
   ([7-1](#7-1-前提-ghq-の標準レイアウトであること-移行済み))。
   **fork して別 owner にするなら `flakeDir` の `Zeni-Y` も直すこと。**

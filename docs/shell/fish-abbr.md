@@ -121,7 +121,7 @@ hunk 単位の add や rebase の並べ替えのような込み入った操作�
 
 | 短縮 | 展開 |
 | --- | --- |
-| `hms` | `home-manager switch --flake ~/ghq/github.com/Zeni-Y/dotfiles-nix#zenimoto@ubuntu` |
+| `hms` | `home-manager switch --flake .#zenimoto@ubuntu` |
 | `hmn` | `home-manager news --flake …` |
 | `hmg` | `home-manager generations --flake …` |
 | `nfc` | `nix flake check --no-build ~/ghq/github.com/Zeni-Y/dotfiles-nix` |
@@ -131,6 +131,10 @@ flake 構成では `--flake` を省略すると `~/.config/home-manager/home.nix
 探しに行って `No configuration file found` で落ちるため、home-manager 系は
 どのサブコマンドでも毎回 `--flake` が要ります。手で打つには長すぎるので
 abbr にしています。
+
+`hms` だけは `.` (カレントディレクトリ) を参照するため、リポジトリ
+(worktree 含む) に cd してから使います。いま居るチェックアウトを
+そのまま適用するためです。ほかは絶対パスなのでどこからでも打てます。
 
 初回 switch だけ必要な `-b backup` は、`hms` を展開してから書き足せます
 (abbr が alias より扱いやすい典型例)。
