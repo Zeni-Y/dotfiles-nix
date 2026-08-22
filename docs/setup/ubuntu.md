@@ -86,7 +86,7 @@ OS ユーザー名と一致している必要がある** (`home.homeDirectory` �
 自動でスキップされる。
 
 ```bash
-$EDITOR flake.nix    # 必要なら username / gitName / gitEmail を直す
+./scripts/configure-user.sh    # 対話的に userInfo を一括設定 ($EDITOR flake.nix でもよい)
 ```
 
 適用する。**初回は `-b backup` が必須**

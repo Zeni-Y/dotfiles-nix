@@ -170,8 +170,8 @@ flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
 `hmn` / `nfu` / `nfc` などの abbreviation はこの `flakeDir` / `flakeRef` に展開されるので、
 別の場所に置くと展開先が実在せず落ちます
 (`hms` は `.` を参照するため、リポジトリに cd してから使います) (→ [docs/shell/fish-abbr.md](../shell/fish-abbr.md))。
-**別の owner に fork した場合は `flakeDir` の `Zeni-Y` も直してください**
-(GitHub の owner 名は `userInfo.username` と綴りが違うので自動では導けません)。
+**別の owner に fork した場合は `userInfo.githubUser` を直してください**
+(`flakeDir` の owner 部分はそこから導出されます)。
 
 host/owner の階層まで含めた形にしているのは、git worktree を同じ `~/ghq` に
 集約して `ghq list | fzf` 一発で行き来できるようにするためです
@@ -248,7 +248,7 @@ nix --version
 `flake.nix` の `userInfo` を自分の情報に書き換えます。
 
 ```bash
-$EDITOR flake.nix
+./scripts/configure-user.sh   # 対話的に一括設定。$EDITOR flake.nix でもよい
 ```
 
 ```nix
@@ -256,6 +256,7 @@ userInfo = {
   username = "zenimoto";
   gitName  = "zenimoto";
   gitEmail = "zeki110922@gmail.com";   # ← 既定のプレースホルダから変更する
+  githubUser = "Zeni-Y";               # GitHub の owner 名 (ghq の owner 補完と flakeDir が参照)
   windowsUsername = "zeki1";           # C:\Users のユーザー名 (7-4 章の ssh-agent 連携用)
 };
 ```
