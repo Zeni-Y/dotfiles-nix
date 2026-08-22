@@ -86,7 +86,7 @@ herdr                    # サーバが無ければ起動し、クライアン�
 `hd` は `home/herdr.nix` で定義している fish の abbreviation で、
 Space か Enter で `herdr` に展開されます。`hd session list` のように
 続けて打てるのは alias と同じですが、履歴には展開後の `herdr ...` が残ります
-([fish-abbr.md](./fish-abbr.md) 2 章)。対話シェル専用なので
+([fish-abbr.md](../shell/fish-abbr.md) 2 章)。対話シェル専用なので
 シェルスクリプト中では効きません (スクリプトからは `herdr` と書いてください)。
 
 ### 再起動をまたぐ復元
@@ -241,7 +241,7 @@ herdr pane current                               # 現在のペインの情報 (
 | 設定 | 値 | 意図 |
 | --- | --- | --- |
 | `onboarding` | `false` | 設定は Nix で持つのでウィザードを通さない |
-| `terminal.default_shell` | `${pkgs.fish}/bin/fish` | PATH 上の apt 版 fish ではなく Nix 管理の fish を使う ([理由](./fish-nix-path.md#3-fish-が-vendor_confd-を読む経路)) |
+| `terminal.default_shell` | `${pkgs.fish}/bin/fish` | PATH 上の apt 版 fish ではなく Nix 管理の fish を使う ([理由](../shell/fish-nix-path.md#3-fish-が-vendor_confd-を読む経路)) |
 | `terminal.new_cwd` | `"follow"` | 新規ペイン / タブが元の cwd を引き継ぐ |
 | `keys.prefix` | `"ctrl+q"` | 既定の `ctrl+b` (fish の backward-char) とも `ctrl+t` (fzf) とも衝突しないキー |
 | `theme.name` | `"catppuccin"` | WezTerm (Catppuccin Mocha) と揃える |
@@ -280,7 +280,7 @@ home/herdr.nix を編集
 `~/.config/herdr/config.toml` は Nix store への symlink (読み取り専用) なので、
 **GUI の設定画面 (`prefix+s`) から変更しても書き戻せません**。
 設定変更は必ず `home/herdr.nix` 側で行ってください
-(この考え方の一般論は [nix-concepts.md の 7 章](./nix-concepts.md#7-外部ツールによる変更を-nix-に取り込む))。
+(この考え方の一般論は [nix-concepts.md の 7 章](../nix/nix-concepts.md#7-外部ツールによる変更を-nix-に取り込む))。
 
 ---
 

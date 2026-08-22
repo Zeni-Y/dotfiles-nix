@@ -1,4 +1,4 @@
-# 11. Scripts / Misc — bin/ 以下の便利スクリプト群
+# ref-tips: Scripts / Misc — bin/ 以下の便利スクリプト群
 
 `ref/kawarimidoll-dotfiles/bin/` 中心。  
 `pkgs.writeShellApplication` で Nix パッケージ化するか、`home.file` で配布するか選択。

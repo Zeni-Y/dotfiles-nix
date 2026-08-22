@@ -1,4 +1,4 @@
-# 03. Git — alias / カスタム `git-*` / git-hooks
+# ref-tips: Git — alias / カスタム `git-*` / git-hooks
 
 両 dotfiles ともに git 周りの作り込みが豊富。
 

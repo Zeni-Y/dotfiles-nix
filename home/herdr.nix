@@ -109,7 +109,7 @@
 
   # 起動・再アタッチを短く打てるようにする短縮入力。
   # `hd` も alias ではなく abbr にする。履歴とプロンプトに展開後の
-  # `herdr ...` が残り、展開してからオプションを足せるため (docs/fish-abbr.md 2 章)。
+  # `herdr ...` が残り、展開してからオプションを足せるため (docs/shell/fish-abbr.md 2 章)。
   # `hd` という名前のコマンドは PATH 上に存在しない (hexdump の hd は
   # bsdmainutils 由来で、この環境には入っていない) ので衝突しない。
   # bash には abbr に相当する仕組みが無いが、対話 bash は fish に exec する
@@ -124,7 +124,7 @@
     hda = "herdr session attach";
 
     # 設定を足したあとに不明キーが無いか確かめる。
-    # docs/herdr.md でも「設定変更のたびに実行する」と書いているもの。
+    # docs/terminal/herdr.md でも「設定変更のたびに実行する」と書いているもの。
     hdc = "herdr config check";
   };
 }

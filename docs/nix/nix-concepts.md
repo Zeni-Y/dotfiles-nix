@@ -799,7 +799,7 @@ xdg.configFile."gwq/config.toml" = {
 
 `~/.bashrc` のように **OS が最初から置いているファイル**は事情が違い、
 中身を確認したうえで退避したいので `-b backup` が正解です
-(初回 switch で `-b backup` が必須なのはこのため → [README](../README.md#-b-backup-の挙動))。
+(初回 switch で `-b backup` が必須なのはこのため → [README](../../README.md#-b-backup-の挙動))。
 
 > **新しいツールを Nix 管理下に置くときのチェック**:
 > そのツールが**自分で設定ファイルを生成するか**を先に確認してください。

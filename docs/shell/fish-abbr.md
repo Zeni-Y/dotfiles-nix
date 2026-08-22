@@ -115,7 +115,7 @@ hunk 単位の add や rebase の並べ替えのような込み入った操作�
 | `hdc` | `herdr config check` |
 
 `hdc` は設定を足したあとに不明キーが無いか確かめるためのもので、
-[herdr.md](./herdr.md) でも設定変更のたびに実行するよう書いています。
+[herdr.md](../terminal/herdr.md) でも設定変更のたびに実行するよう書いています。
 
 ### dotfiles 管理 — `home/shell/fish.nix`
 
@@ -160,7 +160,7 @@ abbr は「打った文字列を別の文字列に置き換える」だけなの
 これが無いと `gwq cd` は「新しいシェルを起こしてその中で移動する」ため、
 worktree を渡り歩くたびにシェルが積み上がります。
 生成と読み込みの仕組みは
-[git-worktree.md 7-3 章](./git-worktree.md#7-3-移動を作る--シェル統合と-dev)。
+[git-worktree.md 7-3 章](../git/git-worktree.md#7-3-移動を作る--シェル統合と-dev)。
 
 > `dev` / `ghq-path` は fish 専用です。abbr と同じく、対話 bash は fish に
 > `exec` するので実害はありません ([6 章](#6-注意点))。

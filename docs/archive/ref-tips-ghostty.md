@@ -1,4 +1,6 @@
-# 05. Terminal — Ghostty (宣言的設定 / scrollback in vim)
+# ref-tips: Terminal — Ghostty (宣言的設定 / scrollback in vim)
+
+> **archive**: 現構成では使っていないツールの候補集。退避の経緯は [README.md](./README.md) を参照。
 
 現状は WezTerm のみ。Ghostty を追加 or 移行する候補。
 

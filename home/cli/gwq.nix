@@ -9,7 +9,7 @@
 #   ~/ghq/github.com/Zeni-Y/dotfiles-nix=feature-x    ← worktree (gwq add)
 #
 # 詳細と、隔離派 (herdr / Claude Code の既定) との使い分けは
-# docs/git-worktree.md を参照。
+# docs/git/git-worktree.md を参照。
 { pkgs, ... }:
 
 let
@@ -77,7 +77,7 @@ in
     # このファイルは全項目をここで宣言しているので手元で編集する意味が無い。
     # よって問答無用で上書きさせる。`-b backup` でも回避はできるが、あちらは
     # .backup が既にあると再実行がまた止まる (README「-b backup の挙動」参照)
-    # ため、恒久対策には向かない。詳細は docs/nix-concepts.md 7-7 章。
+    # ため、恒久対策には向かない。詳細は docs/nix/nix-concepts.md 7-7 章。
     force = true;
 
     source = configFile;

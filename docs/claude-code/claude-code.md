@@ -181,7 +181,7 @@ Nix も switch も要りません。
 | `~/.claude.json` | 認証情報とセッション状態 |
 
 これは `~/.config/nvim` を Nix 管理外にしているのと同じ判断です
-(→ [README のエディタの節](../README.md#エディタ-neovim--lazyvim))。
+(→ [README のエディタの節](../../README.md#エディタ-neovim--lazyvim))。
 **「ツール自身が書き込むファイルは Nix で配らない」**を原則にしています。
 
 固定したい設定項目が出てきたら `programs.claude-code.settings` に書けますが、
@@ -216,7 +216,7 @@ Nix も switch も要りません。
   できません (確認済み)。その場限りのルールはリポジトリ側の `.claude/rules/` に書きます。
 - **`home/claude-code/rules/` に Markdown を足しただけでは配られない。**
   flake は git 管理下のファイルしか見ないので `git add` が要ります
-  (→ [git-worktree.md 9 章](./git-worktree.md#9-この構成-nix--flake--direnv-での注意))。
+  (→ [git-worktree.md 9 章](../git/git-worktree.md#9-この構成-nix--flake--direnv-での注意))。
 - **`paths:` の無い rules は常時読み込まれる。** 「分ければ軽くなる」わけではありません。
 - **worktree では `.claude/settings.local.json` が付いてこない** (gitignore 済みのため)。
   `.claude/rules/` は git 管理下なので付いてきます。
@@ -229,8 +229,8 @@ Nix も switch も要りません。
 
 ## 関連ドキュメント
 
-- [git-worktree.md](./git-worktree.md) — 並列エージェント運用と worktree のライフサイクル
-- [nix-concepts.md](./nix-concepts.md) — Home Manager が設定を配る仕組み
-- [ref-tips/06-claude-code.md](./ref-tips/06-claude-code.md) — 他 dotfiles の Claude Code 周りの採用候補
+- [git-worktree.md](../git/git-worktree.md) — 並列エージェント運用と worktree のライフサイクル
+- [nix-concepts.md](../nix/nix-concepts.md) — Home Manager が設定を配る仕組み
+- [ref-tips.md](./ref-tips.md) — 他 dotfiles の Claude Code 周りの採用候補
 - 一次情報: <https://code.claude.com/docs/en/memory> /
   home-manager の `programs.claude-code` オプション
