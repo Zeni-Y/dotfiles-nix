@@ -102,7 +102,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 ├── .claude/rules/           # 同上。触ったファイルに応じて読み込まれる細則
 │
 ├── scripts/
-│   └── setup.sh             # Nix のインストール (sudo 必須)
+│   ├── setup.sh             # Nix のインストール (sudo 必須)
+│   └── configure-user.sh    # flake.nix の userInfo を対話的に設定
 │
 └── docker/                  # Docker 上の検証環境 / 開発環境
     ├── debug/               #   素の Ubuntu で setup.sh を検証する箱
@@ -194,7 +195,8 @@ cd dotfiles-nix
 #   username    : OS のユーザー名
 #   gitName     : git のコミッタ名
 #   gitEmail    : git のコミットアドレス
-$EDITOR flake.nix
+#   githubUser  : GitHub の owner 名 (ghq の owner 補完と flakeDir が参照)
+./scripts/configure-user.sh    # 対話的に一括設定。$EDITOR flake.nix でもよい
 ```
 
 ### Ubuntu (standalone home-manager)

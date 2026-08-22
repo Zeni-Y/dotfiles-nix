@@ -46,8 +46,9 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 `home/cli/<name>.nix`** を作って `home/cli/default.nix` の `imports` に足す。
 短縮入力 (`programs.fish.shellAbbrs`) はそのツールのモジュールに置く。
 
-**個人情報は `flake.nix` の `userInfo` に集約する。** 例外は GitHub の owner 名 `Zeni-Y`
-(`home/shell/fish.nix` の `flakeDir`)。`userInfo.username` (`zenimoto`) と綴りが違い自動導出できない。
+**個人情報は `flake.nix` の `userInfo` に集約する。** GitHub の owner 名は `userInfo.githubUser`
+(`username` と綴りが違い自動導出できないため別項目)。`ghq.user` と fish の `flakeDir` は
+そこから導出される。対話的な一括設定は `scripts/configure-user.sh`。
 
 ## 意図的にそうしているもの (「きれいにする」提案をしない)
 

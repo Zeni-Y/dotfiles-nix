@@ -15,9 +15,10 @@ let
   # パスは ghq の標準レイアウト (<root>/<host>/<owner>/<repo>)。
   # worktree を同じ root に集約するため (docs/git/git-worktree.md 7 章)、
   # ここは host/owner を含んだ形でなければならない。
-  # GitHub の owner (Zeni-Y) は userInfo.username (zenimoto) と綴りが違うので
-  # config からは導けず、ホスト名の "ubuntu" と同様に直書きしている。
-  flakeDir = "${config.home.homeDirectory}/ghq/github.com/Zeni-Y/dotfiles-nix";
+  # GitHub の owner は userInfo.username と綴りが違うので home.username からは
+  # 導けない。flake.nix の userInfo.githubUser が git config (ghq.user) に
+  # 流れてくるので、そこから拾って直書きをなくしている。
+  flakeDir = "${config.home.homeDirectory}/ghq/github.com/${config.programs.git.settings.ghq.user}/dotfiles-nix";
   flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
 in
 {
