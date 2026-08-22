@@ -9,7 +9,7 @@
     ./gh.nix
     ./ghq.nix
     ./gwq.nix
-    ./preview.nix
+    ./hiraku.nix
     ./zoxide.nix
     ./eza.nix
   ];

@@ -1,12 +1,12 @@
 # ─────────────────────────────────────────────────────────────
-# preview: リモートの markdown / HTML をローカルのブラウザで見る
+# hiraku: リモートの markdown / HTML をローカルのブラウザで見る
 #
 # このマシン (リモート) で HTML に変換して 127.0.0.1 限定の HTTP で
 # 配信し、ローカル側は SSH の LocalForward 越しに Chrome で開く。
 # 完全オフライン (pandoc + entr + python http.server) で、外部 API や
-# ネットワーク公開を伴わない。使い方は docs/cli/preview.md。
+# ネットワーク公開を伴わない。使い方は docs/cli/hiraku.md。
 #
-# サーバーは ~/.cache/preview を配信ルートに 1 個だけ常駐させ、
+# サーバーは ~/.cache/hiraku を配信ルートに 1 個だけ常駐させ、
 # ファイルごとにサブパス (/<slug>/) を割り当てる。複数ファイルを
 # 同時にプレビューしてもポートが増えず、ローカル側の LocalForward が
 # 1 行で済むようにするための設計 (1 起動 = 1 ポートにしない)。
@@ -15,14 +15,14 @@
 #
 # ターミナル内に画像として描画する案 (Kitty graphics) も検証したが、
 # テキスト選択・コピーができない静止画になるため不採用にした。
-# 検証記録は docs/cli/preview.md 5 章。
+# 検証記録は docs/cli/hiraku.md 5 章。
 # ─────────────────────────────────────────────────────────────
 { pkgs, ... }:
 
 let
   # pandoc の素の standalone HTML は無装飾で読みにくいので最小限の CSS を当てる。
   # --embed-resources で HTML 本体に埋め込まれるため、配信するのは 1 ファイルで済む。
-  previewCss = pkgs.writeText "preview.css" ''
+  hirakuCss = pkgs.writeText "hiraku.css" ''
     :root { color-scheme: light dark; }
     body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
     h1, h2 { border-bottom: 1px solid #8884; padding-bottom: .3em; }
@@ -33,8 +33,8 @@ let
     img { max-width: 100%; }
   '';
 
-  preview = pkgs.writeShellApplication {
-    name = "preview";
+  hiraku = pkgs.writeShellApplication {
+    name = "hiraku";
     runtimeInputs = [
       pkgs.coreutils
       pkgs.findutils
@@ -58,7 +58,7 @@ let
         (
           cd "$(dirname "$src")" &&
             pandoc -s -f gfm -t html5 --embed-resources \
-              --css ${previewCss} \
+              --css ${hirakuCss} \
               --metadata "title=$(basename "$src")" \
               "''${args[@]}" -o "$out" "$(basename "$src")"
         )
@@ -153,9 +153,9 @@ let
 
       usage() {
         cat <<'EOF'
-      使い方: preview [-p PORT] [-r 秒] <file.md|file.html|ディレクトリ>
-              preview -l   登録済みプレビューの一覧を表示する
-              preview -s   サーバーを停止する (登録はキャッシュに残る)
+      使い方: hiraku [-p PORT] [-r 秒] <file.md|file.html|ディレクトリ>
+              hiraku -l   登録済みプレビューの一覧を表示する
+              hiraku -s   サーバーを停止する (登録はキャッシュに残る)
 
       サーバーは 1 個だけ常駐し、対象ごとに http://localhost:PORT/<slug>/ を
       割り当てる。トップ (/) は一覧ページ。ローカル側で LocalForward を張って開く。
@@ -166,7 +166,7 @@ let
       EOF
       }
 
-      root=''${XDG_CACHE_HOME:-$HOME/.cache}/preview
+      root=''${XDG_CACHE_HOME:-$HOME/.cache}/hiraku
       meta=$root/.meta
       pidfile=$root/server.pid
       portfile=$root/server.port
@@ -180,9 +180,9 @@ let
       # python http.server は index.html があればそれを返すので、これだけで済む
       generate_index() {
         {
-          printf '<!doctype html><html><head><meta charset="utf-8"><title>preview</title>'
+          printf '<!doctype html><html><head><meta charset="utf-8"><title>hiraku</title>'
           printf '<style>body{font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.8}</style>'
-          printf '</head><body><h1>preview 一覧</h1><ul>'
+          printf '</head><body><h1>hiraku 一覧</h1><ul>'
           for m in "$meta"/*; do
             [ -f "$m" ] || continue
             printf '<li><a href="/%s">%s</a></li>' "$(sed -n 2p "$m")" "$(sed -n 1p "$m")"
@@ -324,7 +324,7 @@ let
           generate_index
           ensure_server
           echo "ローカルのブラウザで開く: http://localhost:$port/$url"
-          echo "(一覧: http://localhost:$port/  サーバー停止は preview -s)"
+          echo "(一覧: http://localhost:$port/  サーバー停止は hiraku -s)"
           ;;
         *)
           echo "対応していない拡張子です (.md / .html): $src" >&2
@@ -335,5 +335,5 @@ let
   };
 in
 {
-  home.packages = [ preview ];
+  home.packages = [ hiraku ];
 }

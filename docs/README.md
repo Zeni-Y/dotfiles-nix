@@ -22,7 +22,7 @@
 | [terminal/](./terminal/) | [herdr.md](./terminal/herdr.md) | [herdr](https://herdr.dev/) (ターミナルマルチプレクサ) の使い方・キーバインド・設定の反映フロー |
 | [claude-code/](./claude-code/) | [claude-code.md](./claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と、Nix での配り方 |
 | | [ref-tips.md](./claude-code/ref-tips.md) | CLAUDE.md / agents / skills / hooks の導入候補 |
-| [cli/](./cli/) | [preview.md](./cli/preview.md) | リモートの markdown / HTML をローカルのブラウザで見る `preview` コマンドの使い方と設計 |
+| [cli/](./cli/) | [hiraku.md](./cli/hiraku.md) | リモートの markdown / HTML をローカルのブラウザで見る `hiraku` コマンドの使い方と設計 |
 | | [ref-tips-tools.md](./cli/ref-tips-tools.md) | delta, bit, comma, lazygit, dust などの導入候補 |
 | | [ref-tips-scripts.md](./cli/ref-tips-scripts.md) | `bin/` 以下の便利スクリプト群の導入候補 |
 | [archive/](./archive/) | [README.md](./archive/README.md) | 使わなくなったツールの資料の置き場。理由もそこに書く |
@@ -44,7 +44,7 @@
 | ペインの出力を遡りたい / コピーしたい | [terminal/herdr.md 5 章](./terminal/herdr.md#5-ペインの操作-分割スクロールコピー) |
 | セッションを残したままターミナルを閉じたい | [terminal/herdr.md 3 章](./terminal/herdr.md#3-起動デタッチ終了-ランタイムのライフサイクル) |
 | 複数の coding agent を並列に走らせたい | [git/git-worktree.md 8 章](./git/git-worktree.md#8-並列エージェント運用のレシピ) |
-| リモートの markdown / HTML を手元のブラウザで見たい | [cli/preview.md](./cli/preview.md) |
+| リモートの markdown / HTML を手元のブラウザで見たい | [cli/hiraku.md](./cli/hiraku.md) |
 | worktree をどこに置けばいいか (ghq との関係) | [git/git-worktree.md 5 章](./git/git-worktree.md#5-置き場所の設計--集約派と隔離派) |
 | clone と worktree を `~/ghq` に集約したい (gwq) | [git/git-worktree.md 7 章](./git/git-worktree.md#7-集約派で揃える--gwq-と-herdr-を合わせる) |
 | worktree を消したのにブランチが残る / 消せない | [git/git-worktree.md 4 章](./git/git-worktree.md#4-ライフサイクル-素の-git) |
