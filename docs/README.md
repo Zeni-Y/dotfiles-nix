@@ -10,7 +10,8 @@
 | --- | --- | --- |
 | [nix/](./nix/) | [nix-concepts.md](./nix/nix-concepts.md) | Nix の構文・概念・Flakes・モジュール・Home Manager のライフサイクル。**まずこれ** |
 | | [ref-tips.md](./nix/ref-tips.md) | overlays / git-hooks.nix / agent-skills-nix の導入候補 |
-| [setup/](./setup/) | [wsl2.md](./setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・Docker との使い分け・WSL 固有のハマりどころ |
+| [setup/](./setup/) | [wsl2.md](./setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・1Password ssh-agent 連携・WSL 固有のハマりどころ |
+| | [ubuntu.md](./setup/ubuntu.md) | リモート接続先の素の Ubuntu でのセットアップ手順・SSH agent forwarding の扱い |
 | [shell/](./shell/) | [fish-abbr.md](./shell/fish-abbr.md) | fish の補完がどこから来ているか・短縮入力 (abbreviation) の一覧と足し方 |
 | | [fish-nix-path.md](./shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組みと、このリポジトリでの扱い |
 | | [ref-tips.md](./shell/ref-tips.md) | fish の abbr / functions / key bindings の導入候補 |
@@ -32,6 +33,8 @@
 | --- | --- |
 | 導入したい / 環境を作り直したい | [README.md](../README.md) |
 | Windows 上に環境を作りたい | [setup/wsl2.md](./setup/wsl2.md) |
+| リモートの Ubuntu に環境を作りたい | [setup/ubuntu.md](./setup/ubuntu.md) |
+| 再起動後もパスフレーズ無しで ssh したい (1Password) | [setup/wsl2.md 7-4 章](./setup/wsl2.md#74-ssh-agent-を-windows-側に一本化する-任意) |
 | WSL で systemd が要るのはなぜか | [setup/wsl2.md 3 章](./setup/wsl2.md#3-systemd-を有効化する) |
 | WezTerm の設定が Windows で効かない | [setup/wsl2.md 7 章](./setup/wsl2.md#72-ターミナル) |
 | `home-manager switch` が何をしているのか | [nix/nix-concepts.md 5 章](./nix/nix-concepts.md#5-home-manager-のライフサイクル) |

@@ -176,9 +176,14 @@ Docker コンテナ内での利用は今後も想定するが、その場合も
 
 ## 初回セットアップ
 
-> **Windows の場合**: 先に [docs/setup/wsl2.md](docs/setup/wsl2.md) で WSL2 の Ubuntu を用意してください
-> (ユーザー名を `userInfo.username` に揃える・systemd を有効にする・リポジトリを
-> `~/ghq/github.com/Zeni-Y/dotfiles-nix` に置く)。その後は以下の手順に合流します。
+環境ごとに入口が違う。まず該当する行のドキュメントに従い、
+そこから以下の共通手順 (clone → `userInfo` → 初回 switch) に合流する。
+
+| 環境 | 入口 |
+| --- | --- |
+| **Windows (WSL2)** | [docs/setup/wsl2.md](docs/setup/wsl2.md)。WSL2 の用意 → systemd 有効化 → `setup.sh` → 初回 switch → Windows 側の仕上げ (フォント / ターミナル / [1Password ssh-agent 連携](docs/setup/wsl2.md#74-ssh-agent-を-windows-側に一本化する-任意)) まで全行程がある |
+| **リモート接続先の Ubuntu** | [docs/setup/ubuntu.md](docs/setup/ubuntu.md)。`setup.sh` → 初回 switch。秘密鍵はリモートに置かず、手元の agent を forwarding で持ち込む |
+| **Docker コンテナ** | [docker/](docker/) の各 README。検証用は `debug`、常駐開発は `working` |
 
 ```bash
 # 自分のフォークを clone する想定

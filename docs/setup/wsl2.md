@@ -7,8 +7,12 @@ Windows 上でこのリポジトリの環境を再現する手順です。
 
 > **対象**: `homeConfigurations."zenimoto@ubuntu"` (standalone Home Manager)
 >
-> Windows 側の準備 (フォント・ターミナル) は [7 章](#7-windows-側の仕上げ) にまとめています。
-> Linux 側だけ終わらせても、フォントが無いと herdr や LazyVim のアイコンが豆腐になります。
+> Windows 側の準備 (フォント・ターミナル・1Password ssh-agent) は
+> [7 章](#7-windows-側の仕上げ) にまとめています。Linux 側だけ終わらせても、
+> フォントが無いと herdr や LazyVim のアイコンが豆腐になります。
+>
+> SSH で入るリモートの Ubuntu に作る場合はここではなく
+> [ubuntu.md](./ubuntu.md) を見てください。
 
 ---
 
@@ -203,7 +207,7 @@ Home Manager の適用後は `gh` が入るので、以降は `gh auth login` �
 credential helper 経由の HTTPS 認証も使えます (`home/git.nix`)。
 
 鍵にパスフレーズを付けた場合は、再起動後の再入力を無くすために
-[7-4 章](#7-4-ssh-agent-を-windows-側に一本化する-任意) の
+[7-4 章](#74-ssh-agent-を-windows-側に一本化する-任意) の
 ssh-agent 一本化を設定してください。
 
 ---
@@ -252,6 +256,7 @@ userInfo = {
   username = "zenimoto";
   gitName  = "zenimoto";
   gitEmail = "zeki110922@gmail.com";   # ← 既定のプレースホルダから変更する
+  windowsUsername = "zeki1";           # C:\Users のユーザー名 (7-4 章の ssh-agent 連携用)
 };
 ```
 
