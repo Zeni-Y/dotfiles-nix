@@ -34,6 +34,9 @@
         username = "zenimoto";
         gitName = "zenimoto";
         gitEmail = "you@example.com";  # ← 実際のメールアドレスに変更
+        # WSL の中継 (home/wsl-ssh-agent.nix) が参照する C:\Users\<name>。
+        # WSL 以外のホストでは使わないので null のままでよい。
+        windowsUsername = "zeki1";
       };
     in
     {
