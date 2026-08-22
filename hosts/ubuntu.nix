@@ -27,6 +27,9 @@ inputs.home-manager.lib.homeManagerConfiguration {
 
       programs.git.settings.user.name = userInfo.gitName;
       programs.git.settings.user.email = userInfo.gitEmail;
+
+      # Windows 側 ssh-agent への中継 (home/wsl-ssh-agent.nix)
+      wsl.windowsUsername = userInfo.windowsUsername or null;
     }
   ];
 }
