@@ -16,6 +16,7 @@
 | | [fish-nix-path.md](./shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組みと、このリポジトリでの扱い |
 | | [ref-tips.md](./shell/ref-tips.md) | fish の abbr / functions / key bindings の導入候補 |
 | [git/](./git/) | [git-worktree.md](./git/git-worktree.md) | git worktree のライフサイクル・ghq / herdr / Claude Code との住み分け・並列エージェント運用 |
+| | [github-ssh.md](./git/github-ssh.md) | GitHub への接続を ssh に一本化する方針・1Password の鍵をマシン間で使い回す方法・agent の無い環境での逃げ道 |
 | | [ref-tips.md](./git/ref-tips.md) | git alias / カスタム `git-*` / git-hooks の導入候補 |
 | [editor/](./editor/) | [lazyvim.md](./editor/lazyvim.md) | Neovim + [LazyVim](https://www.lazyvim.org/) の使い方・Nix との責務分担・プラグインのライフサイクル |
 | | [ref-tips.md](./editor/ref-tips.md) | Neovim のキーマップ / プラグインの導入候補 |
@@ -35,6 +36,7 @@
 | Windows 上に環境を作りたい | [setup/wsl2.md](./setup/wsl2.md) |
 | リモートの Ubuntu に環境を作りたい | [setup/ubuntu.md](./setup/ubuntu.md) |
 | 再起動後もパスフレーズ無しで ssh したい (1Password) | [setup/wsl2.md 7-4 章](./setup/wsl2.md#74-ssh-agent-を-windows-側に一本化する-任意) |
+| 別のマシンでも同じ ssh 鍵を使いたい / https の clone が失敗する | [git/github-ssh.md](./git/github-ssh.md) |
 | WSL で systemd が要るのはなぜか | [setup/wsl2.md 3 章](./setup/wsl2.md#3-systemd-を有効化する) |
 | WezTerm の設定が Windows で効かない | [setup/wsl2.md 7 章](./setup/wsl2.md#72-ターミナル) |
 | `home-manager switch` が何をしているのか | [nix/nix-concepts.md 5 章](./nix/nix-concepts.md#5-home-manager-のライフサイクル) |
