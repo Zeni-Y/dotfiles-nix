@@ -20,10 +20,11 @@
 # ツリーの幅を変えられる。ファイルの変更は監視スレッドが検知して SSE で
 # ブラウザに伝え、開いているファイルだけを読み込み直す。
 #
-# 画像と PDF はブラウザのネイティブ表示に任せる。音声は全プレビュー共通の
-# 静的ページ /player.html (?src= で対象を指定) で開き、波形の生成・
+# PDF はブラウザのネイティブ表示に任せる。音声と画像は全プレビュー共通の
+# 静的ページ /player.html /image.html (?src= で対象を指定) で開く。音声の波形生成・
 # チャンネル切替はブラウザ側の Web Audio API でやる。サーバー側に ffmpeg 等の
-# 依存を増やさないため。
+# 依存を増やさないため。画像をネイティブ表示にしないのは、ペイン幅に合わせて
+# 勝手に伸縮されるだけで倍率を選べず、大きい画像も小さい画像も見づらいため。
 #
 # ターミナル内に画像として描画する案 (Kitty graphics) も検証したが、
 # テキスト選択・コピーができない静止画になるため不採用にした。
@@ -38,6 +39,7 @@ let
   hirakuApp = ./hiraku/app.html;
   hirakuCss = ./hiraku/style.css;
   hirakuPlayer = ./hiraku/player.html;
+  hirakuImage = ./hiraku/image.html;
 
   hiraku = pkgs.writeShellApplication {
     name = "hiraku";
@@ -58,6 +60,8 @@ let
       対応形式: markdown / HTML / 画像 (png jpg gif svg webp avif bmp ico) /
                 PDF / 音声 (mp3 wav ogg flac m4a aac opus)。音声は波形表示・
                 クリックでのシーク・L/R チャンネル切替ができるプレーヤーで開く。
+                画像は左クリックで拡大・Ctrl+左クリックで縮小・長押しで移動
+                できるビューアで開き、倍率を右上に表示する。
 
         -p PORT   待ち受けポート (既定 4649)
 
@@ -101,6 +105,7 @@ let
         --asset "app=${hirakuApp}" \
         --asset "css=${hirakuCss}" \
         --asset "player=${hirakuPlayer}" \
+        --asset "image=${hirakuImage}" \
         -- "$@"
     '';
   };

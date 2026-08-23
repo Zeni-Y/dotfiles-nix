@@ -82,8 +82,23 @@ function fetchDir(path) {
 
 function viewUrl(entry) {
   var src = "/view/" + entry.path.split("/").map(encodeURIComponent).join("/");
-  // 音声だけは波形付きプレーヤー経由で開く
-  return entry.kind === "audio" ? "/player.html?src=" + encodeURIComponent(src) : src;
+  // 音声と画像だけは専用のページ経由で開く (波形 / 拡大縮小のため)
+  if (entry.kind === "audio") return "/player.html?src=" + encodeURIComponent(src);
+  if (entry.kind === "image") return "/image.html?src=" + encodeURIComponent(src);
+  return src;
+}
+
+// 拡張子 -> 種別。ツリー経由なら種別はサーバーが付けてくるので、これを使うのは
+// URL のハッシュや起動時の指定からいきなり開くときだけ (server.py の KINDS と対応)
+var VIEWER_EXT = {
+  audio: [".mp3", ".wav", ".ogg", ".oga", ".flac", ".m4a", ".aac", ".opus"],
+  image: [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".bmp", ".ico"]
+};
+
+function kindOf(name) {
+  var ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+  for (var kind in VIEWER_EXT) if (VIEWER_EXT[kind].indexOf(ext) !== -1) return kind;
+  return null;
 }
 
 function openEntry(entry) {
@@ -229,9 +244,7 @@ fetch("/api/roots").then(function (r) { return r.json(); }).then(function (info)
   return refresh().then(function () {
     if (!want) return;
     var name = parts[parts.length - 1];
-    var ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-    var audio = [".mp3", ".wav", ".ogg", ".oga", ".flac", ".m4a", ".aac", ".opus"].indexOf(ext) !== -1;
-    openEntry({ path: want, kind: audio ? "audio" : null });
+    openEntry({ path: want, kind: kindOf(name) });
   });
 });
 </script>
