@@ -28,6 +28,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 > | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
 > | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と Nix での配り方 |
 > | [docs/shell/fish-nix-path.md](docs/shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組み |
+> | [docs/secrets/1password-direnv.md](docs/secrets/1password-direnv.md) | API キー / トークン / .env を 1Password + direnv で管理する |
 
 ---
 
@@ -52,8 +53,9 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・GitHub への接続は url.insteadOf で ssh に一本化 ([docs/git/github-ssh.md](docs/git/github-ssh.md)) |
 | ターミナル | [herdr](https://herdr.dev/) (prefix `C-q`, セッション永続化, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
 | エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
-| CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi |
+| CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / op (1Password) / lazygit / ripgrep / fd / jq / yq / yazi |
 | リポジトリ / worktree | ghq + gwq — clone も worktree も `~/ghq` に集約。`dev` で fzf 移動、`gwq add` / `gwq cd` は現在のシェルごと移動する ([docs/git/git-worktree.md](docs/git/git-worktree.md)) |
+| 秘密情報 | 1Password CLI (`op`) + direnv の `use op` — `.env` を平文で置かず、リポジトリには `op://…` の参照だけを置く ([docs/secrets/1password-direnv.md](docs/secrets/1password-direnv.md)) |
 | コーディングエージェント | Claude Code 本体と、全プロジェクト共通の指示 (`~/.claude/CLAUDE.md` / `~/.claude/rules/`) を宣言的に配布 ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md)) |
 
 日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は

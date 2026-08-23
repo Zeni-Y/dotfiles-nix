@@ -26,6 +26,7 @@
 | [cli/](./cli/) | [hiraku.md](./cli/hiraku.md) | リモートの markdown / HTML / 画像 / PDF / 音声をローカルのブラウザで見る `hiraku` コマンドの使い方と設計 |
 | | [ref-tips-tools.md](./cli/ref-tips-tools.md) | delta, bit, comma, lazygit, dust などの導入候補 |
 | | [ref-tips-scripts.md](./cli/ref-tips-scripts.md) | `bin/` 以下の便利スクリプト群の導入候補 |
+| [secrets/](./secrets/) | [1password-direnv.md](./secrets/1password-direnv.md) | API キー / トークン / .env を 1Password + direnv で管理する構成・`use op` の使い方・コミットしてよい範囲 |
 | [archive/](./archive/) | [README.md](./archive/README.md) | 使わなくなったツールの資料の置き場。理由もそこに書く |
 
 ## どこを見ればいいか
@@ -36,6 +37,8 @@
 | Windows 上に環境を作りたい | [setup/wsl2.md](./setup/wsl2.md) |
 | リモートの Ubuntu に環境を作りたい | [setup/ubuntu.md](./setup/ubuntu.md) |
 | 再起動後もパスフレーズ無しで ssh したい (1Password) | [setup/wsl2.md 7-4 章](./setup/wsl2.md#74-ssh-agent-を-windows-側に一本化する-任意) |
+| API キーやトークンを .env に平文で置きたくない | [secrets/1password-direnv.md](./secrets/1password-direnv.md) |
+| `use op` が空になる / セッションが切れる | [secrets/1password-direnv.md 7 章](./secrets/1password-direnv.md#7-ハマりどころ) |
 | 別のマシンでも同じ ssh 鍵を使いたい / https の clone が失敗する | [git/github-ssh.md](./git/github-ssh.md) |
 | WSL で systemd が要るのはなぜか | [setup/wsl2.md 3 章](./setup/wsl2.md#3-systemd-を有効化する) |
 | WezTerm の設定が Windows で効かない | [setup/wsl2.md 7 章](./setup/wsl2.md#72-ターミナル) |

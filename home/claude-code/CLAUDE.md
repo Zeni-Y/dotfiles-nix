@@ -50,6 +50,10 @@
 - ドキュメントを追加したら、索引 (README や `docs/README.md`) にも行を足す。
 - **秘密情報 (トークン / 鍵 / パスワード) をファイルにもコミットにも書かない。**
   設定に必要なら環境変数か外部の credential helper 経由にする。
+- 環境変数で秘密を渡すときは **1Password + direnv** を使う。値は書かず、
+  `.env.op` に `KEY=op://Vault/Item/field` の参照だけを置いて `.envrc` に `use op`
+  と書く (`.env.op` と `.envrc` はコミットしてよい。平文の `.env` は作らない)。
+  1 コマンドだけなら `op run --env-file=.env.op -- <cmd>`。
 
 ## 覚えさせたいことの置き場所
 

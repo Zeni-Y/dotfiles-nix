@@ -67,6 +67,7 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 | `Existing file ... would be clobbered` | [nix-concepts.md 7 章](docs/nix/nix-concepts.md#7-外部ツールによる変更を-nix-に取り込む) |
 | worktree / 並列エージェント / ghq・gwq の住み分け | [docs/git/git-worktree.md](docs/git/git-worktree.md) |
 | GitHub への ssh 一本化・1Password の鍵の使い回し | [docs/git/github-ssh.md](docs/git/github-ssh.md) |
+| API キー / トークン / `.env` の扱い (1Password + direnv) | [docs/secrets/1password-direnv.md](docs/secrets/1password-direnv.md) |
 | Claude Code の指示ファイルの階層と配り方 | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) |
 | `hms` などの短縮入力の展開先 | [docs/shell/fish-abbr.md](docs/shell/fish-abbr.md) (実行時は `abbr --show`) |
 | ターミナル (herdr) のキーバインド・設定反映 | [docs/terminal/herdr.md](docs/terminal/herdr.md) |
