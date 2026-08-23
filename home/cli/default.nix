@@ -10,6 +10,7 @@
     ./ghq.nix
     ./gwq.nix
     ./hiraku.nix
+    ./onepassword.nix
     ./zoxide.nix
     ./eza.nix
   ];

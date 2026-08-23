@@ -59,6 +59,17 @@
 
       # Claude Code
       ".claude/settings.local.json"
+
+      # 秘密情報。実体は 1Password に置き、リポジトリには参照だけを
+      # 書いたテンプレート (.env.op) を残す (docs/secrets/1password-direnv.md)。
+      # 平文の .env をうっかりコミットする事故を全リポジトリで止めるため、
+      # ここでまとめて無視する。テンプレート類は否定パターンで戻す。
+      ".env"
+      ".env.*"
+      "!.env.op"
+      "!.env.example"
+      "!.env.sample"
+      ".envrc.local"
     ];
   };
 
