@@ -50,6 +50,39 @@ end
 `--wraps=nvim` があるので、`vi <Tab>` は nvim の補完定義をそのまま使います。
 abbr の場合はそもそも展開後の実コマンドに対して補完が効くので、この仕組みは要りません。
 
+### 接続直後の 1 枚目のシェルで補完が効かなかった話
+
+**症状**: SSH で入った直後のシェルだと `herdr <Tab>` がサブコマンドではなく
+ファイル名を出す。そこで `exec fish` したり herdr のペインを開いたりすると
+効くようになる。
+
+**原因**: 上の表の「パッケージ同梱」の補完は
+`~/.nix-profile/share/fish/vendor_completions.d/` に置かれていて、fish は
+**起動した時点の** `XDG_DATA_DIRS` / `NIX_PROFILES` からこのディレクトリ一覧
+(`$fish_complete_path`) を組み立てます。
+
+このマシンのログインシェルは fish (`/etc/passwd`) なので、bash 経由なら通る
+`/etc/profile` → `nix-daemon.sh` を誰も読みません。つまり 1 枚目の fish は
+`XDG_DATA_DIRS` が空のまま起動し、vendor_completions.d を知らないまま
+`$fish_complete_path` を確定させます。その後 `config.fish` が `nix.fish` を
+source して `XDG_DATA_DIRS` を **export** しますが、`$fish_complete_path` は
+一度組んだら組み直されないので 1 枚目には間に合いません。
+2 枚目以降の fish は export された値を環境変数として継承するため、起動の時点で
+vendor_completions.d を知っていて補完が効く — これが「開き直すと直る」の正体でした。
+
+**対処**: `home/shell/fish.nix` の `shellInit` で、`nix.fish` を source した直後に
+fish の起動時と同じ規則で `$fish_complete_path` の不足分を埋めています
+(機械生成の `generated_completions` より前に挿す。あちらはサブコマンドを
+知らないので、先に当たると同梱補完まで届かなくなるため)。
+
+確かめるには 1 枚目のシェルで:
+
+```fish
+# vendor_completions.d が入っているか
+contains $HOME/.nix-profile/share/fish/vendor_completions.d $fish_complete_path; and echo ok
+count (complete -C "herdr ")   # 0 なら効いていない
+```
+
 ---
 
 ## 2. abbreviation を alias より優先する理由

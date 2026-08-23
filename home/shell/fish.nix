@@ -55,6 +55,48 @@ in
               fish_add_path --global --move --prepend $d
           end
       end
+
+      # ─────────────────────────────────────────────────────
+      # 接続直後の 1 枚目のシェルでも同梱補完を効かせる
+      #
+      # ログインシェルが fish (/etc/passwd) なので、bash 経由なら通る
+      # /etc/profile → nix-daemon.sh を誰も読まない。fish は起動の時点の
+      # XDG_DATA_DIRS / NIX_PROFILES から fish_complete_path を組み立てるため、
+      # 1 枚目だけ ~/.nix-profile/share/fish/vendor_completions.d が抜け、
+      # `herdr session <Tab>` などの同梱補完がファイル名補完に落ちる。
+      # すぐ上で source した nix.fish が XDG_DATA_DIRS を export するのは
+      # それより後なので間に合わず、しかし export された値は子に継承される。
+      # これが「シェルを開き直すと補完が効くようになる」の正体。
+      #
+      # fish_complete_path は起動後に XDG_DATA_DIRS を足しても組み直されないので、
+      # ここで fish の起動時と同じ規則で不足分を埋める。
+      # ─────────────────────────────────────────────────────
+      if status is-interactive; and set -q XDG_DATA_DIRS
+          for d in (string split : -- $XDG_DATA_DIRS)
+              set -l base (string replace -r '/+$' "" -- $d)/fish
+
+              if test -d $base/vendor_completions.d; and not contains -- $base/vendor_completions.d $fish_complete_path
+                  # man ページから機械生成した補完 (generated_completions) より
+                  # 前に置く。あちらはサブコマンドを知らないので、先に当たると
+                  # 同梱補完まで届かなくなる
+                  set -l merged
+                  set -l inserted 0
+                  for p in $fish_complete_path
+                      if test $inserted -eq 0; and string match -q '*generated_completions*' -- $p
+                          set -a merged $base/vendor_completions.d
+                          set inserted 1
+                      end
+                      set -a merged $p
+                  end
+                  test $inserted -eq 0; and set -a merged $base/vendor_completions.d
+                  set -g fish_complete_path $merged
+              end
+
+              if test -d $base/vendor_functions.d; and not contains -- $base/vendor_functions.d $fish_function_path
+                  set -ga fish_function_path $base/vendor_functions.d
+              end
+          end
+      end
     '';
 
     shellAliases = {
