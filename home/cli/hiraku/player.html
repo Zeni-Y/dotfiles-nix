@@ -1,0 +1,166 @@
+<!-- hiraku の音声プレーヤー (全プレビュー共通の静的ページ)。
+     ?src=/view/<スラグ>/<ファイル> で対象を受ける。
+     波形はブラウザが音声ファイルを fetch + decodeAudioData して描く。
+     サーバー側で波形画像を作らないのは、静的配信だけで済ませて
+     リモートの依存 (ffmpeg など) を増やさないため。
+     チャンネル切替は <audio> → ChannelSplitter → ChannelMerger の経路で、
+     「L だけ」を選んだら左チャンネルを両耳に流す (片耳だけ鳴らすと聴き比べづらい)。 -->
+<!doctype html>
+<html><head><meta charset="utf-8"><title>hiraku</title>
+<style>
+:root { color-scheme: light dark; }
+body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; }
+h1 { font-size: 1.1rem; overflow-wrap: anywhere; border-bottom: 1px solid #8884; padding-bottom: .3em; }
+#wave { width: 100%; height: 220px; display: block; background: #8881; border-radius: 6px; cursor: crosshair; touch-action: none; }
+#bar { display: flex; align-items: center; gap: .8rem; margin-top: .8rem; flex-wrap: wrap; }
+audio { flex: 1; min-width: 16rem; }
+#ch button { padding: .3em .8em; border: 1px solid #8886; background: none; border-radius: 4px; cursor: pointer; color: inherit; }
+#ch button.on { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+#status { opacity: .7; font-size: .9em; }
+</style></head><body>
+<h1 id="name"></h1>
+<canvas id="wave" height="220"></canvas>
+<div id="bar">
+  <audio id="audio" controls preload="metadata"></audio>
+  <span id="ch">
+    <button data-ch="stereo" class="on">ステレオ</button>
+    <button data-ch="left">L のみ</button>
+    <button data-ch="right">R のみ</button>
+  </span>
+</div>
+<p id="status">波形を生成中…</p>
+<script>
+"use strict";
+var src = new URLSearchParams(location.search).get("src");
+var audio = document.getElementById("audio");
+var canvas = document.getElementById("wave");
+var cctx = canvas.getContext("2d");
+var statusEl = document.getElementById("status");
+if (!src) { statusEl.textContent = "?src=/<スラグ>/<ファイル> の指定がない"; throw new Error("no src"); }
+var name = decodeURIComponent(src.split("/").pop());
+document.getElementById("name").textContent = name;
+document.title = name;
+audio.src = src;
+
+// <audio> → splitter → merger → 出力。suspended のままだと無音なので再生開始で resume
+var actx = new (window.AudioContext || window.webkitAudioContext)();
+var splitter = actx.createChannelSplitter(2);
+var merger = actx.createChannelMerger(2);
+actx.createMediaElementSource(audio).connect(splitter);
+merger.connect(actx.destination);
+audio.addEventListener("play", function () { actx.resume(); });
+
+var mode = "stereo";
+function applyMode() {
+  try { splitter.disconnect(); } catch (e) { void e; }
+  if (mode === "left") { splitter.connect(merger, 0, 0); splitter.connect(merger, 0, 1); }
+  else if (mode === "right") { splitter.connect(merger, 1, 0); splitter.connect(merger, 1, 1); }
+  else { splitter.connect(merger, 0, 0); splitter.connect(merger, 1, 1); }
+  renderCache();
+}
+applyMode();
+document.querySelectorAll("#ch button").forEach(function (b) {
+  b.addEventListener("click", function () {
+    mode = b.dataset.ch;
+    document.querySelectorAll("#ch button").forEach(function (x) { x.classList.toggle("on", x === b); });
+    applyMode();
+  });
+});
+
+// 波形: 全サンプルを decode し、1px 列ごとの min/max を描いてキャッシュしておく
+var buffer = null;
+var cache = document.createElement("canvas");
+fetch(src)
+  .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
+  .then(function (b) { return actx.decodeAudioData(b); })
+  .then(function (buf) {
+    buffer = buf;
+    if (buf.numberOfChannels < 2) document.getElementById("ch").style.display = "none";
+    statusEl.textContent = buf.numberOfChannels + "ch / " + buf.sampleRate + " Hz / " + fmt(buf.duration);
+    resize();
+  })
+  .catch(function (e) { statusEl.textContent = "波形の生成に失敗 (再生は下のプレーヤーで試せる): " + e.message; });
+
+function fmt(t) {
+  if (!isFinite(t)) return "-:--";
+  var m = Math.floor(t / 60), s = t - m * 60;
+  return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1);
+}
+
+function renderCache() {
+  if (!buffer) return;
+  var w = canvas.width, h = canvas.height;
+  cache.width = w; cache.height = h;
+  var c = cache.getContext("2d");
+  var nch = Math.min(2, buffer.numberOfChannels);
+  var laneH = h / nch;
+  for (var ch = 0; ch < nch; ch++) {
+    var data = buffer.getChannelData(ch);
+    var mid = laneH * ch + laneH / 2;
+    // 聴いていない側のチャンネルは薄くして、どちらが鳴るかを波形でも示す
+    var dim = nch === 2 && ((mode === "left" && ch === 1) || (mode === "right" && ch === 0));
+    c.fillStyle = dim ? "rgba(128,140,150,.25)" : (ch === 0 ? "#4a90d9" : "#2fa878");
+    var step = data.length / w;
+    for (var x = 0; x < w; x++) {
+      var lo = 1, hi = -1;
+      var s0 = Math.floor(x * step), s1 = Math.min(data.length, Math.floor((x + 1) * step) + 1);
+      // 列内の全サンプルは見ない (長尺だと描画が数秒止まる)。間引いても見た目はほぼ同じ
+      var stride = Math.max(1, Math.floor((s1 - s0) / 200));
+      for (var i = s0; i < s1; i += stride) { var v = data[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+      var y0 = mid - hi * (laneH / 2) * 0.95;
+      c.fillRect(x, y0, 1, Math.max(1, (hi - lo) * (laneH / 2) * 0.95));
+    }
+    if (nch === 2) {
+      c.fillStyle = "rgba(128,128,128,.8)";
+      c.font = "12px system-ui";
+      c.fillText(ch === 0 ? "L" : "R", 6, laneH * ch + 14);
+    }
+  }
+  if (nch === 2) { c.fillStyle = "rgba(128,128,128,.4)"; c.fillRect(0, laneH, w, 1); }
+}
+
+function frame() {
+  var w = canvas.width, h = canvas.height;
+  cctx.clearRect(0, 0, w, h);
+  if (cache.width) cctx.drawImage(cache, 0, 0);
+  if (audio.duration) {
+    var x = audio.currentTime / audio.duration * w;
+    cctx.fillStyle = "rgba(128,128,128,.25)";
+    cctx.fillRect(0, 0, x, h);
+    cctx.fillStyle = "#e05252";
+    cctx.fillRect(x - 1, 0, 2, h);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function resize() {
+  var r = canvas.getBoundingClientRect();
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(100, Math.floor(r.width * dpr));
+  canvas.height = Math.floor(220 * dpr);
+  renderCache();
+}
+window.addEventListener("resize", resize);
+resize();
+
+// 波形のクリック / ドラッグでシーク
+var dragging = false;
+function seek(e) {
+  if (!audio.duration) return;
+  var r = canvas.getBoundingClientRect();
+  var f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  audio.currentTime = f * audio.duration;
+}
+canvas.addEventListener("pointerdown", function (e) { dragging = true; canvas.setPointerCapture(e.pointerId); seek(e); });
+canvas.addEventListener("pointermove", function (e) { if (dragging) seek(e); });
+canvas.addEventListener("pointerup", function () { dragging = false; });
+
+// Space で再生/停止、←→ で 5 秒シーク
+window.addEventListener("keydown", function (e) {
+  if (e.target.tagName === "BUTTON" || e.target.tagName === "AUDIO") return;
+  if (e.code === "Space") { e.preventDefault(); if (audio.paused) audio.play(); else audio.pause(); }
+  else if (e.code === "ArrowLeft") audio.currentTime = Math.max(0, audio.currentTime - 5);
+  else if (e.code === "ArrowRight") audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+});
+</script></body></html>

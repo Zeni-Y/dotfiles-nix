@@ -1,0 +1,12 @@
+/* pandoc の素の standalone HTML は無装飾で読みにくいので最小限の CSS を当てる。
+   サーバーが /hiraku.css で配信し、pandoc の --css で参照させる。
+   --embed-resources をやめて外部 CSS にしたのは、変換結果をディスクに
+   残さず毎回 pandoc に通す作りになり、埋め込みの得が無くなったため。 */
+:root { color-scheme: light dark; }
+body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
+h1, h2 { border-bottom: 1px solid #8884; padding-bottom: .3em; }
+pre { background: #8881; padding: .8em; border-radius: 6px; overflow-x: auto; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid #8886; padding: .3em .8em; }
+blockquote { border-left: 4px solid #8886; margin-left: 0; padding-left: 1em; opacity: .8; }
+img { max-width: 100%; }
