@@ -49,7 +49,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | トピック | 中身 |
 | --- | --- |
 | シェル | bash → fish への自動切替・fish プラグイン (autopair / sponge / fzf.fish / **pure** プロンプト)・git / herdr / home-manager の短縮入力 ([abbreviation](docs/shell/fish-abbr.md)) |
-| Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・url.pushInsteadOf |
+| Git | userName/userEmail・rebase 既定・push.autoSetupRemote・gh による credential helper・GitHub への接続は url.insteadOf で ssh に一本化 ([docs/git/github-ssh.md](docs/git/github-ssh.md)) |
 | ターミナル | [herdr](https://herdr.dev/) (prefix `C-q`, セッション永続化, Catppuccin)・WezTerm (FiraCode Nerd Font, Catppuccin Mocha) |
 | エディタ | Neovim + [LazyVim](https://www.lazyvim.org/) (初回 switch 時に starter を自動取得・`~/.config/nvim` はユーザ管理) |
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / lazygit / ripgrep / fd / jq / yq / yazi |
@@ -400,6 +400,11 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   設定を残したいなら `~/.config/nvim` 自体を別リポジトリで管理すること。
   作り直したいときは `rm -rf ~/.config/nvim ~/.local/share/nvim ~/.local/state/nvim`
   してから `home-manager switch` すれば starter を取り直す。
+- **ssh-agent の無い環境では GitHub の https clone も失敗する**。
+  `url.insteadOf` で GitHub との通信をすべて ssh に書き換えているため
+  (公開リポジトリでも ssh は認証必須)。新しいマシンでの鍵の設定と、
+  cron / CI / コンテナなど agent を用意できない環境での逃げ道は
+  [docs/git/github-ssh.md](docs/git/github-ssh.md)。
 - **`~/.claude/CLAUDE.md` と `~/.claude/rules/` は Nix store への symlink**なので、
   その場で編集したり Claude Code の `#` で書き足したりはできない。共通ルールを直すときは
   `home/claude-code/` 側を編集して `git add` → `home-manager switch`。
