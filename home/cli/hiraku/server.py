@@ -15,6 +15,7 @@ URL の構成:
     /                       2 ペインのアプリ本体 (app.html)
     /hiraku.css             pandoc 出力に当てる CSS
     /player.html            音声プレーヤー
+    /image.html             画像ビューア (拡大縮小・移動)
     /api/roots              対象一覧と初期選択
     /api/tree?path=&filter= 1 階層ぶんのツリー (遅延展開用)
     /api/events             変更通知 (SSE)
@@ -297,6 +298,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_asset("css", "text/css; charset=utf-8", head_only)
         if path == "/player.html":
             return self.send_asset("player", "text/html; charset=utf-8", head_only)
+        if path == "/image.html":
+            return self.send_asset("image", "text/html; charset=utf-8", head_only)
         if path == "/api/roots":
             return self.send_json({
                 "roots": [{"slug": s, "name": os.path.basename(p) or p, "path": p}
