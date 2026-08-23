@@ -1,0 +1,238 @@
+<!-- hiraku の 2 ペイン画面。左がファイルツリー、右がプレビューの iframe。
+     ツリーは /api/tree で 1 階層ずつ取りに行く (最初はディレクトリを畳んだ
+     状態で出し、クリックで開閉する)。全部を再帰的に出さないのは、大きな
+     ディレクトリでも開くのが軽く、目的のファイルを探しやすいため。
+     ファイルの変更は /api/events (SSE) で受けて、開いているファイルだけを
+     読み込み直す。 -->
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>hiraku</title>
+<style>
+:root { color-scheme: light dark; --side: 18rem; }
+* { box-sizing: border-box; }
+body { display: flex; height: 100vh; margin: 0; font-family: system-ui, sans-serif; }
+
+#side { width: var(--side); flex: 0 0 auto; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #8884; }
+#head { padding: .6rem .7rem; border-bottom: 1px solid #8884; display: flex; flex-direction: column; gap: .4rem; }
+#title { font-size: .95rem; font-weight: 600; overflow-wrap: anywhere; }
+#filter { width: 100%; padding: .25em .3em; background: none; color: inherit; border: 1px solid #8886; border-radius: 4px; font: inherit; font-size: .85em; }
+#tree { flex: 1; overflow: auto; padding: .4rem .3rem .8rem; font-size: .9rem; }
+#tree .row { display: flex; align-items: center; gap: .25em; width: 100%; padding: .12em .3em; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; overflow-wrap: anywhere; }
+#tree .row:hover { background: #8882; }
+#tree .row.sel { background: #4a90d9; color: #fff; }
+#tree .mark { flex: 0 0 1em; opacity: .7; font-size: .8em; }
+#tree .kids { margin-left: .8em; border-left: 1px solid #8883; }
+#tree .empty { opacity: .6; padding: .3em .5em; font-size: .9em; }
+
+#split { flex: 0 0 6px; cursor: col-resize; background: #8882; }
+#split:hover, body.dragging #split { background: #4a90d9; }
+#content { flex: 1 1 auto; min-width: 0; border: 0; }
+body.dragging { user-select: none; }
+body.dragging #content { pointer-events: none; }
+</style></head>
+<body>
+<nav id="side">
+  <div id="head">
+    <div id="title">hiraku</div>
+    <select id="filter">
+      <option value="all">すべて</option>
+      <option value="md">markdown (.md)</option>
+      <option value="html">HTML (.html)</option>
+      <option value="image">画像 (.png .jpg …)</option>
+      <option value="pdf">PDF (.pdf)</option>
+      <option value="audio">音声 (.wav .mp3 …)</option>
+    </select>
+  </div>
+  <div id="tree"></div>
+</nav>
+<div id="split" title="ドラッグで幅を変える"></div>
+<iframe id="content" name="content"></iframe>
+
+<script>
+"use strict";
+
+var treeEl = document.getElementById("tree");
+var filterEl = document.getElementById("filter");
+var titleEl = document.getElementById("title");
+var frame = document.getElementById("content");
+
+var state = {
+  filter: localStorage.getItem("hiraku.filter") || "all",
+  // 開いているディレクトリの仮想パス。復元するのは、保存のたびに
+  // ツリーを作り直しても畳まれてしまわないようにするため
+  open: new Set(JSON.parse(localStorage.getItem("hiraku.open") || "[]")),
+  current: null
+};
+filterEl.value = state.filter;
+
+function save() {
+  localStorage.setItem("hiraku.filter", state.filter);
+  localStorage.setItem("hiraku.open", JSON.stringify(Array.from(state.open)));
+}
+
+// ─── ツリー ───
+
+function fetchDir(path) {
+  return fetch("/api/tree?path=" + encodeURIComponent(path) + "&filter=" + state.filter)
+    .then(function (r) { return r.ok ? r.json() : { entries: [] }; })
+    .then(function (j) { return j.entries || []; })
+    .catch(function () { return []; });
+}
+
+function viewUrl(entry) {
+  var src = "/view/" + entry.path.split("/").map(encodeURIComponent).join("/");
+  // 音声だけは波形付きプレーヤー経由で開く
+  return entry.kind === "audio" ? "/player.html?src=" + encodeURIComponent(src) : src;
+}
+
+function openEntry(entry) {
+  state.current = entry.path;
+  frame.src = viewUrl(entry);
+  location.hash = encodeURIComponent(entry.path);
+  markSelected();
+}
+
+function markSelected() {
+  treeEl.querySelectorAll(".row.sel").forEach(function (el) { el.classList.remove("sel"); });
+  if (!state.current) return;
+  var el = treeEl.querySelector('[data-path="' + CSS.escape(state.current) + '"]');
+  if (el) el.classList.add("sel");
+}
+
+function buildInto(container, path) {
+  return fetchDir(path).then(function (entries) {
+    container.textContent = "";
+    if (!entries.length) {
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "(該当なし)";
+      container.appendChild(empty);
+      return;
+    }
+    var pending = [];
+    entries.forEach(function (e) {
+      var row = document.createElement(e.type === "dir" ? "button" : "a");
+      row.className = "row";
+      row.dataset.path = e.path;
+      var mark = document.createElement("span");
+      mark.className = "mark";
+      var label = document.createElement("span");
+      label.textContent = e.name;
+      row.appendChild(mark);
+      row.appendChild(label);
+
+      if (e.type === "dir") {
+        var kids = document.createElement("div");
+        kids.className = "kids";
+        var opened = state.open.has(e.path);
+        mark.textContent = opened ? "▾" : "▸";
+        row.addEventListener("click", function () {
+          if (state.open.has(e.path)) {
+            state.open.delete(e.path);
+            mark.textContent = "▸";
+            kids.textContent = "";
+          } else {
+            state.open.add(e.path);
+            mark.textContent = "▾";
+            buildInto(kids, e.path).then(markSelected);
+          }
+          save();
+        });
+        container.appendChild(row);
+        container.appendChild(kids);
+        if (opened) pending.push(buildInto(kids, e.path));
+      } else {
+        mark.textContent = e.kind === "audio" ? "♪" : "";
+        row.href = viewUrl(e);
+        row.addEventListener("click", function (ev) { ev.preventDefault(); openEntry(e); });
+        container.appendChild(row);
+      }
+    });
+    return Promise.all(pending);
+  });
+}
+
+function refresh() {
+  // 保存のたびに作り直すので、見ていた位置に戻す
+  var top = treeEl.scrollTop;
+  return buildInto(treeEl, "").then(function () {
+    treeEl.scrollTop = top;
+    markSelected();
+  });
+}
+
+filterEl.addEventListener("change", function () {
+  state.filter = filterEl.value;
+  save();
+  refresh();
+});
+
+// ─── 幅の調整 (ドラッグ) ───
+
+var saved = localStorage.getItem("hiraku.width");
+if (saved) document.documentElement.style.setProperty("--side", saved + "px");
+
+document.getElementById("split").addEventListener("pointerdown", function (e) {
+  e.preventDefault();
+  this.setPointerCapture(e.pointerId);
+  document.body.classList.add("dragging");
+  var move = function (ev) {
+    // 端まで寄せきってペインを見失わないよう上下に余裕を残す
+    var w = Math.max(120, Math.min(window.innerWidth - 200, ev.clientX));
+    document.documentElement.style.setProperty("--side", w + "px");
+  };
+  var up = function () {
+    document.body.classList.remove("dragging");
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    localStorage.setItem("hiraku.width", parseInt(getComputedStyle(document.documentElement).getPropertyValue("--side"), 10));
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+});
+
+// ─── 変更の反映 ───
+
+function reloadContent() {
+  if (!frame.src) return;
+  var y = 0;
+  try { y = frame.contentWindow.scrollY || 0; } catch (err) { void err; }
+  frame.addEventListener("load", function once() {
+    frame.removeEventListener("load", once);
+    try { frame.contentWindow.scrollTo(0, y); } catch (err) { void err; }
+  });
+  // サーバーは no-store を返すので、reload で必ず最新が来る
+  frame.contentWindow.location.reload();
+}
+
+var events = new EventSource("/api/events");
+events.onmessage = function (ev) {
+  var d = JSON.parse(ev.data);
+  if (d.structure) refresh();
+  if (state.current && d.changed.indexOf(state.current) !== -1) reloadContent();
+};
+
+// ─── 起動 ───
+
+fetch("/api/roots").then(function (r) { return r.json(); }).then(function (info) {
+  var names = info.roots.map(function (r) { return r.name; });
+  titleEl.textContent = names.join(" / ") || "hiraku";
+  titleEl.title = info.roots.map(function (r) { return r.path; }).join("\n");
+  document.title = names.join(" / ") || "hiraku";
+
+  var want = location.hash ? decodeURIComponent(location.hash.slice(1)) : info.initial;
+  var parts = want ? want.split("/") : [];
+  // 目的のファイルまでの親ディレクトリは開いた状態で組み立てる
+  for (var i = 1; i < parts.length; i++) state.open.add(parts.slice(0, i).join("/"));
+  save();
+  return refresh().then(function () {
+    if (!want) return;
+    var name = parts[parts.length - 1];
+    var ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+    var audio = [".mp3", ".wav", ".ogg", ".oga", ".flac", ".m4a", ".aac", ".opus"].indexOf(ext) !== -1;
+    openEntry({ path: want, kind: audio ? "audio" : null });
+  });
+});
+</script>
+</body></html>
