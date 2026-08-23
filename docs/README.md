@@ -56,6 +56,7 @@
 | `~/.claude/CLAUDE.md` が編集できない | [claude-code/claude-code.md 8 章](./claude-code/claude-code.md#8-ハマりどころ) |
 | `gst` などの短縮入力が何に展開されるのか | [shell/fish-abbr.md 3 章](./shell/fish-abbr.md#3-定義済み-abbreviation-一覧) (実行時は `abbr --show`) |
 | コマンドのオプション候補がどこから出ているのか | [shell/fish-abbr.md 1 章](./shell/fish-abbr.md#1-補完はほぼ何もしなくても効く) |
+| 接続直後の 1 枚目のシェルだけ補完が効かない | [shell/fish-abbr.md 1 章](./shell/fish-abbr.md#接続直後の-1-枚目のシェルで補完が効かなかった話) |
 | エディタのキー操作を知りたい | [editor/lazyvim.md 4 章](./editor/lazyvim.md#4-基本操作) |
 | プラグインや LSP を足したい | [editor/lazyvim.md 5 章](./editor/lazyvim.md#5-設定を変える) / [6 章](./editor/lazyvim.md#6-lspフォーマッタリンタ) |
 | なぜエディタ設定が Nix 管理外なのか | [editor/lazyvim.md 1 章](./editor/lazyvim.md#1-責務の分担) |
