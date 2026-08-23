@@ -105,7 +105,33 @@
     else if test -S "$SSH_AUTH_SOCK"; and test "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock"
         ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
     end
+
+    # ─── `herdr session attach/stop/delete <Tab>` でセッション名を補完する ───
+    # 候補を作るのは下の __herdr_session_names。ここは complete の登録だけ。
+    # 条件に session も要求するのは、同名サブコマンドを持つ
+    # `herdr agent attach` などを巻き込まないため。
+    complete -c herdr \
+        -n '__fish_seen_subcommand_from session; and __fish_seen_subcommand_from attach stop delete' \
+        -f -a '(__herdr_session_names)'
   '';
+
+  # 同梱の clap 生成補完 (share/fish/vendor_completions.d/herdr.fish) は
+  # サブコマンド名とオプションしか知らず、attach などの <NAME> 引数は
+  # ファイル名補完に落ちる。そこで引数の候補だけをこちらで足す。
+  # fish の complete は追加定義が既存と共存し、同梱補完のオートロードも
+  # 妨げない (2026-08-22 に fish -c で共存を確認済み)。
+  # ~/.config/fish/completions/herdr.fish として置く案は取らない。
+  # 補完ファイルはコマンド名で先勝ち探索されるため、同梱補完が丸ごと隠れる。
+  programs.fish.functions.__herdr_session_names = {
+    description = "herdr のセッション名を補完候補として列挙する";
+    body = ''
+      # 説明欄 (タブの後ろ) に running / stopped を出す。attach したいのは
+      # 大抵 running、delete できるのは stopped だけなので、
+      # 候補を選ぶときの手掛かりになる。
+      herdr session list --json 2>/dev/null \
+          | jq -r '.sessions[] | "\(.name)\t\(if .running then "running" else "stopped" end)"'
+    '';
+  };
 
   # 起動・再アタッチを短く打てるようにする短縮入力。
   # `hd` も alias ではなく abbr にする。履歴とプロンプトに展開後の

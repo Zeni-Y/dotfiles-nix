@@ -7,8 +7,12 @@ Windows 上でこのリポジトリの環境を再現する手順です。
 
 > **対象**: `homeConfigurations."zenimoto@ubuntu"` (standalone Home Manager)
 >
-> Windows 側の準備 (フォント・ターミナル) は [7 章](#7-windows-側の仕上げ) にまとめています。
-> Linux 側だけ終わらせても、フォントが無いと herdr や LazyVim のアイコンが豆腐になります。
+> Windows 側の準備 (フォント・ターミナル・1Password ssh-agent) は
+> [7 章](#7-windows-側の仕上げ) にまとめています。Linux 側だけ終わらせても、
+> フォントが無いと herdr や LazyVim のアイコンが豆腐になります。
+>
+> SSH で入るリモートの Ubuntu に作る場合はここではなく
+> [ubuntu.md](./ubuntu.md) を見てください。
 
 ---
 
@@ -163,10 +167,11 @@ flakeDir = "${config.home.homeDirectory}/ghq/github.com/Zeni-Y/dotfiles-nix";
 flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
 ```
 
-`hms` / `nfu` / `nfc` などの abbreviation はこの `flakeRef` に展開されるので、
-別の場所に置くと展開先が実在せず落ちます (→ [docs/shell/fish-abbr.md](../shell/fish-abbr.md))。
-**別の owner に fork した場合は `flakeDir` の `Zeni-Y` も直してください**
-(GitHub の owner 名は `userInfo.username` と綴りが違うので自動では導けません)。
+`hmn` / `nfu` / `nfc` などの abbreviation はこの `flakeDir` / `flakeRef` に展開されるので、
+別の場所に置くと展開先が実在せず落ちます
+(`hms` は `.` を参照するため、リポジトリに cd してから使います) (→ [docs/shell/fish-abbr.md](../shell/fish-abbr.md))。
+**別の owner に fork した場合は `userInfo.githubUser` を直してください**
+(`flakeDir` の owner 部分はそこから導出されます)。
 
 host/owner の階層まで含めた形にしているのは、git worktree を同じ `~/ghq` に
 集約して `ghq list | fzf` 一発で行き来できるようにするためです
@@ -200,6 +205,10 @@ cat ~/.ssh/id_ed25519.pub    # これを GitHub の SSH keys に登録
 
 Home Manager の適用後は `gh` が入るので、以降は `gh auth login` で
 credential helper 経由の HTTPS 認証も使えます (`home/git.nix`)。
+
+鍵にパスフレーズを付けた場合は、再起動後の再入力を無くすために
+[7-4 章](#74-ssh-agent-を-windows-側に一本化する-任意) の
+ssh-agent 一本化を設定してください。
 
 ---
 
@@ -239,7 +248,7 @@ nix --version
 `flake.nix` の `userInfo` を自分の情報に書き換えます。
 
 ```bash
-$EDITOR flake.nix
+./scripts/configure-user.sh   # 対話的に一括設定。$EDITOR flake.nix でもよい
 ```
 
 ```nix
@@ -247,6 +256,8 @@ userInfo = {
   username = "zenimoto";
   gitName  = "zenimoto";
   gitEmail = "zeki110922@gmail.com";   # ← 既定のプレースホルダから変更する
+  githubUser = "Zeni-Y";               # GitHub の owner 名 (ghq の owner 補完と flakeDir が参照)
+  windowsUsername = "zeki1";           # C:\Users のユーザー名 (7-4 章の ssh-agent 連携用)
 };
 ```
 
@@ -332,6 +343,62 @@ swap=8GB
 
 ---
 
+### 7.4 ssh-agent を Windows 側に一本化する (任意)
+
+WSL 内で `ssh-agent` を起こしても鍵はメモリ上にしか無く、PC を再起動する
+たびにパスフレーズの再入力が要ります。Windows 側の agent は再起動を
+またいで鍵を保持するので、agent は Windows に一本化し、WSL からは
+named pipe を中継して使います
+(参考: [WSL2 から 1Password SSH エージェントを使う](https://dev.classmethod.jp/articles/wsl2-1password-ssh-agent/))。
+
+WSL 側の中継 (socat の systemd user service と fish への統合) は
+`home/wsl-ssh-agent.nix` が管理していて、`flake.nix` の
+`userInfo.windowsUsername` に Windows ユーザー名を書くと有効になります。
+Windows 側の準備は以下、いずれも初回のみです。
+
+**1. npiperelay を配置する** (named pipe に触るので Windows 側に置く。
+Nix では管理しない):
+
+```bash
+# WSL 内から。<winuser> は C:\Users のユーザー名
+curl -LO https://github.com/jstarks/npiperelay/releases/latest/download/npiperelay_windows_amd64.zip
+unzip -o npiperelay_windows_amd64.zip npiperelay.exe
+mkdir -p /mnt/c/Users/<winuser>/bin
+mv npiperelay.exe /mnt/c/Users/<winuser>/bin/
+```
+
+**2. agent を用意する** (どちらか片方):
+
+- **1Password SSH agent**: 1Password の 設定 → 開発者 →
+  「SSH エージェントを使用する」を有効化し、鍵を 1Password に取り込む。
+  named pipe は OpenSSH と同じ `//./pipe/openssh-ssh-agent` に生える。
+- **Windows OpenSSH の ssh-agent サービス**: 管理者 PowerShell で
+
+  ```powershell
+  Set-Service ssh-agent -StartupType Automatic
+  Start-Service ssh-agent
+  ```
+
+  のあと、通常の PowerShell で WSL 内の鍵を登録する
+  (パスフレーズを聞かれるのはこの 1 回だけ):
+
+  ```powershell
+  ssh-add \\wsl.localhost\Ubuntu-24.04\home\zenimoto\.ssh\id_ed25519
+  ```
+
+**3. 確認する** (`home-manager switch` 後の WSL 内で):
+
+```bash
+systemctl --user status wsl-ssh-agent-relay
+ssh-add -l    # Windows 側の鍵が見えれば成功
+```
+
+注意: `~/.ssh/config` に `IdentityAgent //./pipe/openssh-ssh-agent`
+(Windows の named pipe) を書いてはいけません。WSL の ssh はこの設定を
+`SSH_AUTH_SOCK` より優先し、WSL からは pipe に届かないので agent が
+一切効かなくなります。書くなら中継先の `IdentityAgent ~/.ssh/agent.sock`
+です (`Host *` に書くと SSH 転送された agent より常に優先される点だけ注意)。
+
 ## 8. WSL 固有のハマりどころ
 
 - **systemd を有効にせず `setup.sh` を実行してしまった**。
@@ -345,6 +412,23 @@ swap=8GB
   `nix-daemon` が動いていないサインです。systemd 構成なら
   `sudo systemctl start nix-daemon`、そうでなければ README の
   [既知のハマりどころ](../../README.md#既知のハマりどころ) を参照。
+
+- **Windows の exe が `exec format error` になる (interop が死ぬ)**。
+  `cmd.exe` や `npiperelay.exe` (7-4 章) が実行できないときは、WSL interop の
+  binfmt 登録が消えています (`ls /proc/sys/fs/binfmt_misc/` に `WSLInterop` が無い)。
+  Ubuntu の systemd パッケージが WSL では `systemd-binfmt` を起動しない条件
+  (`ConditionVirtualization=!wsl`) を付けており、WSL 側の再登録の仕込み
+  (`protectBinfmt`) がその条件に阻まれて走らないため、このマシンでは
+  ブートのたびに消えます。`/etc/wsl.conf` の `[boot]` で毎回登録し直します:
+
+  ```ini
+  [boot]
+  systemd=true
+  command = sh -c "sleep 5; echo :WSLInterop:M::MZ::/init:P > /proc/sys/fs/binfmt_misc/register"
+  ```
+
+  今のセッションで即座に直すには
+  `sudo sh -c 'echo ":WSLInterop:M::MZ::/init:P" > /proc/sys/fs/binfmt_misc/register'`。
 
 - **Windows の PATH が混ざる**。
   WSL は既定で Windows の `PATH` を継ぎ足すので、`node` や `python` が Windows 側の

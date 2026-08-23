@@ -31,8 +31,12 @@
       "credential \"https://github.com\"".helper = "!gh auth git-credential";
       "credential \"https://gist.github.com\"".helper = "!gh auth git-credential";
 
-      # https でクローンしたリポジトリでも push は ssh で行う
-      "url \"git@github.com:\"".pushInsteadOf = "https://github.com/";
+      # GitHub との clone / fetch / push をすべて ssh に書き換える。
+      # 認証を ssh-agent (WSL では Windows 側の 1Password) に一本化でき、
+      # https 用のトークンや credential を Linux 側に持たなくて済む。
+      # 注意: 公開リポジトリの https clone も ssh になるので、
+      # GitHub に鍵を登録していないマシンでは clone が失敗する。
+      "url \"git@github.com:\"".insteadOf = "https://github.com/";
     };
 
     ignores = [

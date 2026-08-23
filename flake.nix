@@ -34,6 +34,13 @@
         username = "zenimoto";
         gitName = "zenimoto";
         gitEmail = "you@example.com";  # ← 実際のメールアドレスに変更
+        # GitHub の owner 名。username と綴りが違うことがあるので別項目にする。
+        # git config の ghq.user (`ghq get` の owner 補完) に流れ、
+        # home/shell/fish.nix の flakeDir もそこから導出される。
+        githubUser = "Zeni-Y";
+        # WSL の中継 (home/wsl-ssh-agent.nix) が参照する C:\Users\<name>。
+        # WSL 以外のホストでは使わないので null のままでよい。
+        windowsUsername = "zeki1";
       };
     in
     {

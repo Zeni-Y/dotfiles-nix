@@ -1,16 +1,16 @@
-# markdown / HTML / メディアプレビュー (`preview`)
+# markdown / HTML / メディアプレビュー (`hiraku`)
 
 リモート (このマシン) にある markdown / HTML / 画像 / PDF / 音声を、手元のブラウザ
-(Chrome など) で見るためのコマンド。実装は `home/cli/preview.nix`。
+(Chrome など) で見るためのコマンド。実装は `home/cli/hiraku.nix`。
 
 ## 1. 全体像
 
 ```
 リモート                                              ローカル
 ────────────────────────────────────                  ────────────────────────
-a.md   ──pandoc──▶  ~/.cache/preview/a.md-3f2a/       http://localhost:4649/a.md-3f2a/
-b.md   ──pandoc──▶  ~/.cache/preview/b.md-9c1e/       http://localhost:4649/b.md-9c1e/
-site/  ◀─symlink─   ~/.cache/preview/site-8d2c        http://localhost:4649/site-8d2c/...
+a.md   ──pandoc──▶  ~/.cache/hiraku/a.md-3f2a/       http://localhost:4649/a.md-3f2a/
+b.md   ──pandoc──▶  ~/.cache/hiraku/b.md-9c1e/       http://localhost:4649/b.md-9c1e/
+site/  ◀─symlink─   ~/.cache/hiraku/site-8d2c        http://localhost:4649/site-8d2c/...
                           │
                   python http.server ◀── SSH トンネル ── ブラウザ (一覧は /)
                   (127.0.0.1:4649、1 個だけ常駐)
@@ -38,24 +38,24 @@ Host <このリモート>
 ## 3. 使い方
 
 ```bash
-preview README.md            # 変換して登録。表示された URL をローカルのブラウザで開く
-preview -r 2 README.md       # ブラウザを 2 秒ごとに自動リロードさせる
-preview site/index.html      # HTML はそのまま配信 (相対パスの画像も生きる)
-preview shot.png             # 画像・PDF もそのまま配信 (表示はブラウザ任せ)
-preview take1.wav            # 音声: 波形付きプレーヤーで開く (→ 3.2 節)
-preview docs/                # ディレクトリ: 左ツリー + 右プレビューの 2 ペイン画面
-preview -l                   # 登録済みプレビューの一覧 (URL と元ファイル)
-preview -s                   # サーバーを停止する
+hiraku README.md            # 変換して登録。表示された URL をローカルのブラウザで開く
+hiraku -r 2 README.md       # ブラウザを 2 秒ごとに自動リロードさせる
+hiraku site/index.html      # HTML はそのまま配信 (相対パスの画像も生きる)
+hiraku shot.png             # 画像・PDF もそのまま配信 (表示はブラウザ任せ)
+hiraku take1.wav            # 音声: 波形付きプレーヤーで開く (→ 3.2 節)
+hiraku docs/                # ディレクトリ: 左ツリー + 右プレビューの 2 ペイン画面
+hiraku -l                   # 登録済みプレビューの一覧 (URL と元ファイル)
+hiraku -s                   # サーバーを停止する
 ```
 
-- 初回の `preview` がサーバーを自動起動する。2 個目以降のファイルは同じサーバーに
-  相乗りするので、**ポートはずっと 4649 のまま**。URL の一覧は `preview -l` か
+- 初回の `hiraku` がサーバーを自動起動する。2 個目以降のファイルは同じサーバーに
+  相乗りするので、**ポートはずっと 4649 のまま**。URL の一覧は `hiraku -l` か
   ブラウザで `http://localhost:4649/` を見る。
 - markdown は保存するたびに entr が変換し直すので、ブラウザはリロードするだけでよい。
   `-r 秒` を付ければリロードも自動になる (スクロール位置が飛ぶので既定は手動)。
   **Ctrl-C で止まるのはこの監視だけ**で、サーバーと他のプレビューは残る。
-- 変換結果は `~/.cache/preview/` に置かれ、元ファイルのディレクトリは汚さない。
-  登録はサーバーを止めても残る。全部消すなら `rm -rf ~/.cache/preview`。
+- 変換結果は `~/.cache/hiraku/` に置かれ、元ファイルのディレクトリは汚さない。
+  登録はサーバーを止めても残る。全部消すなら `rm -rf ~/.cache/hiraku`。
 - `-p PORT` でポートを変えられるが、サーバーが既に稼働中ならそちらの
   ポートが優先される (1 サーバー方針のため)。LocalForward 側も合わせること。
 - **ディレクトリを渡した場合**: 配下の対応ファイル (隠しディレクトリと node_modules は
@@ -76,7 +76,7 @@ preview -s                   # サーバーを停止する
 ### 3.2 音声プレーヤー
 
 音声は `http://localhost:4649/player.html?src=/<スラグ>/<ファイル>` で開く
-(URL は `preview` が表示する)。できること:
+(URL は `hiraku` が表示する)。できること:
 
 - **波形表示**: ステレオなら L (上・青) / R (下・緑) の 2 段。ブラウザがファイル全体を
   デコードして描くため、長尺ファイルは表示までに数秒かかる。

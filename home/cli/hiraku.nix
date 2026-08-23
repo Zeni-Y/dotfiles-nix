@@ -1,14 +1,14 @@
 # ─────────────────────────────────────────────────────────────
-# preview: リモートのファイルをローカルのブラウザで見る
+# hiraku: リモートのファイルをローカルのブラウザで見る
 #
 # 対応: markdown / HTML / 画像 / PDF / 音声。
 # markdown はこのマシン (リモート) で HTML に変換し、それ以外は実体を
 # そのまま 127.0.0.1 限定の HTTP で配信して、ローカル側は SSH の
 # LocalForward 越しに Chrome で開く。完全オフライン (pandoc + entr +
 # python http.server) で、外部 API やネットワーク公開を伴わない。
-# 使い方は docs/cli/preview.md。
+# 使い方は docs/cli/hiraku.md。
 #
-# サーバーは ~/.cache/preview を配信ルートに 1 個だけ常駐させ、
+# サーバーは ~/.cache/hiraku を配信ルートに 1 個だけ常駐させ、
 # ファイルごとにサブパス (/<slug>/) を割り当てる。複数ファイルを
 # 同時にプレビューしてもポートが増えず、ローカル側の LocalForward が
 # 1 行で済むようにするための設計 (1 起動 = 1 ポートにしない)。
@@ -22,14 +22,14 @@
 #
 # ターミナル内に画像として描画する案 (Kitty graphics) も検証したが、
 # テキスト選択・コピーができない静止画になるため不採用にした。
-# 検証記録は docs/cli/preview.md 5 章。
+# 検証記録は docs/cli/hiraku.md 5 章。
 # ─────────────────────────────────────────────────────────────
 { pkgs, ... }:
 
 let
   # pandoc の素の standalone HTML は無装飾で読みにくいので最小限の CSS を当てる。
   # --embed-resources で HTML 本体に埋め込まれるため、配信するのは 1 ファイルで済む。
-  previewCss = pkgs.writeText "preview.css" ''
+  hirakuCss = pkgs.writeText "hiraku.css" ''
     :root { color-scheme: light dark; }
     body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
     h1, h2 { border-bottom: 1px solid #8884; padding-bottom: .3em; }
@@ -45,9 +45,9 @@ let
   # 波形画像を作らないのは、静的配信だけで済ませて依存を増やさないため。
   # チャンネル切替は <audio> → ChannelSplitter → ChannelMerger の経路で、
   # 「L だけ」を選んだら左チャンネルを両耳に流す (片耳だけ鳴らすと聴き比べづらい)。
-  previewPlayer = pkgs.writeText "preview-player.html" ''
+  hirakuPlayer = pkgs.writeText "hiraku-player.html" ''
     <!doctype html>
-    <html><head><meta charset="utf-8"><title>preview</title>
+    <html><head><meta charset="utf-8"><title>hiraku</title>
     <style>
     :root { color-scheme: light dark; }
     body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; }
@@ -207,8 +207,8 @@ let
     </script></body></html>
   '';
 
-  preview = pkgs.writeShellApplication {
-    name = "preview";
+  hiraku = pkgs.writeShellApplication {
+    name = "hiraku";
     runtimeInputs = [
       pkgs.coreutils
       pkgs.findutils
@@ -232,7 +232,7 @@ let
         (
           cd "$(dirname "$src")" &&
             pandoc -s -f gfm -t html5 --embed-resources \
-              --css ${previewCss} \
+              --css ${hirakuCss} \
               --metadata "title=$(basename "$src")" \
               "''${args[@]}" -o "$out" "$(basename "$src")"
         )
@@ -338,9 +338,9 @@ let
 
       usage() {
         cat <<'EOF'
-      使い方: preview [-p PORT] [-r 秒] <ファイル|ディレクトリ>
-              preview -l   登録済みプレビューの一覧を表示する
-              preview -s   サーバーを停止する (登録はキャッシュに残る)
+      使い方: hiraku [-p PORT] [-r 秒] <ファイル|ディレクトリ>
+              hiraku -l   登録済みプレビューの一覧を表示する
+              hiraku -s   サーバーを停止する (登録はキャッシュに残る)
 
       対応形式: markdown / HTML / 画像 (png jpg gif svg webp avif bmp ico) / PDF /
                 音声 (mp3 wav ogg flac m4a aac opus)。音声は波形表示・クリックでの
@@ -355,14 +355,14 @@ let
       EOF
       }
 
-      root=''${XDG_CACHE_HOME:-$HOME/.cache}/preview
+      root=''${XDG_CACHE_HOME:-$HOME/.cache}/hiraku
       meta=$root/.meta
       pidfile=$root/server.pid
       portfile=$root/server.port
       mkdir -p "$root" "$meta"
       # 音声プレーヤーは全プレビュー共通の静的ページ (実体は Nix store)。
       # 毎回張り直すことで home-manager switch 後の新版も次の起動から反映される
-      ln -sfn ${previewPlayer} "$root/player.html"
+      ln -sfn ${hirakuPlayer} "$root/player.html"
 
       server_running() {
         [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null
@@ -372,9 +372,9 @@ let
       # python http.server は index.html があればそれを返すので、これだけで済む
       generate_index() {
         {
-          printf '<!doctype html><html><head><meta charset="utf-8"><title>preview</title>'
+          printf '<!doctype html><html><head><meta charset="utf-8"><title>hiraku</title>'
           printf '<style>body{font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.8}</style>'
-          printf '</head><body><h1>preview 一覧</h1><ul>'
+          printf '</head><body><h1>hiraku 一覧</h1><ul>'
           for m in "$meta"/*; do
             [ -f "$m" ] || continue
             printf '<li><a href="/%s">%s</a></li>' "$(sed -n 2p "$m")" "$(sed -n 1p "$m")"
@@ -518,7 +518,7 @@ let
           generate_index
           ensure_server
           echo "ローカルのブラウザで開く: http://localhost:$port/$url"
-          echo "(一覧: http://localhost:$port/  サーバー停止は preview -s)"
+          echo "(一覧: http://localhost:$port/  サーバー停止は hiraku -s)"
           ;;
         *.mp3 | *.wav | *.ogg | *.oga | *.flac | *.m4a | *.aac | *.opus)
           # 音声は実体を symlink で配信しつつ、URL は波形付きプレーヤーにする
@@ -528,7 +528,7 @@ let
           generate_index
           ensure_server
           echo "ローカルのブラウザで開く: http://localhost:$port/$url"
-          echo "(一覧: http://localhost:$port/  サーバー停止は preview -s)"
+          echo "(一覧: http://localhost:$port/  サーバー停止は hiraku -s)"
           ;;
         *)
           echo "対応していない拡張子です (md / html / 画像 / pdf / 音声): $src" >&2
@@ -539,5 +539,5 @@ let
   };
 in
 {
-  home.packages = [ preview ];
+  home.packages = [ hiraku ];
 }

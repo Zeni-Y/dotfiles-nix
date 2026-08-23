@@ -22,6 +22,7 @@
 
     ./git.nix
     ./herdr.nix
+    ./wsl-ssh-agent.nix
     ./wezterm.nix
   ];
 

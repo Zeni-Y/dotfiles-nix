@@ -10,7 +10,8 @@
 | --- | --- | --- |
 | [nix/](./nix/) | [nix-concepts.md](./nix/nix-concepts.md) | Nix の構文・概念・Flakes・モジュール・Home Manager のライフサイクル。**まずこれ** |
 | | [ref-tips.md](./nix/ref-tips.md) | overlays / git-hooks.nix / agent-skills-nix の導入候補 |
-| [setup/](./setup/) | [wsl2.md](./setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・Docker との使い分け・WSL 固有のハマりどころ |
+| [setup/](./setup/) | [wsl2.md](./setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・1Password ssh-agent 連携・WSL 固有のハマりどころ |
+| | [ubuntu.md](./setup/ubuntu.md) | リモート接続先の素の Ubuntu でのセットアップ手順・SSH agent forwarding の扱い |
 | [shell/](./shell/) | [fish-abbr.md](./shell/fish-abbr.md) | fish の補完がどこから来ているか・短縮入力 (abbreviation) の一覧と足し方 |
 | | [fish-nix-path.md](./shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組みと、このリポジトリでの扱い |
 | | [ref-tips.md](./shell/ref-tips.md) | fish の abbr / functions / key bindings の導入候補 |
@@ -21,7 +22,7 @@
 | [terminal/](./terminal/) | [herdr.md](./terminal/herdr.md) | [herdr](https://herdr.dev/) (ターミナルマルチプレクサ) の使い方・キーバインド・設定の反映フロー |
 | [claude-code/](./claude-code/) | [claude-code.md](./claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と、Nix での配り方 |
 | | [ref-tips.md](./claude-code/ref-tips.md) | CLAUDE.md / agents / skills / hooks の導入候補 |
-| [cli/](./cli/) | [preview.md](./cli/preview.md) | リモートの markdown / HTML / 画像 / PDF / 音声をローカルのブラウザで見る `preview` コマンドの使い方と設計 |
+| [cli/](./cli/) | [hiraku.md](./cli/hiraku.md) | リモートの markdown / HTML / 画像 / PDF / 音声をローカルのブラウザで見る `hiraku` コマンドの使い方と設計 |
 | | [ref-tips-tools.md](./cli/ref-tips-tools.md) | delta, bit, comma, lazygit, dust などの導入候補 |
 | | [ref-tips-scripts.md](./cli/ref-tips-scripts.md) | `bin/` 以下の便利スクリプト群の導入候補 |
 | [archive/](./archive/) | [README.md](./archive/README.md) | 使わなくなったツールの資料の置き場。理由もそこに書く |
@@ -32,6 +33,8 @@
 | --- | --- |
 | 導入したい / 環境を作り直したい | [README.md](../README.md) |
 | Windows 上に環境を作りたい | [setup/wsl2.md](./setup/wsl2.md) |
+| リモートの Ubuntu に環境を作りたい | [setup/ubuntu.md](./setup/ubuntu.md) |
+| 再起動後もパスフレーズ無しで ssh したい (1Password) | [setup/wsl2.md 7-4 章](./setup/wsl2.md#74-ssh-agent-を-windows-側に一本化する-任意) |
 | WSL で systemd が要るのはなぜか | [setup/wsl2.md 3 章](./setup/wsl2.md#3-systemd-を有効化する) |
 | WezTerm の設定が Windows で効かない | [setup/wsl2.md 7 章](./setup/wsl2.md#72-ターミナル) |
 | `home-manager switch` が何をしているのか | [nix/nix-concepts.md 5 章](./nix/nix-concepts.md#5-home-manager-のライフサイクル) |
@@ -41,7 +44,7 @@
 | ペインの出力を遡りたい / コピーしたい | [terminal/herdr.md 5 章](./terminal/herdr.md#5-ペインの操作-分割スクロールコピー) |
 | セッションを残したままターミナルを閉じたい | [terminal/herdr.md 3 章](./terminal/herdr.md#3-起動デタッチ終了-ランタイムのライフサイクル) |
 | 複数の coding agent を並列に走らせたい | [git/git-worktree.md 8 章](./git/git-worktree.md#8-並列エージェント運用のレシピ) |
-| リモートの markdown / HTML / 画像 / PDF / 音声を手元のブラウザで見たい | [cli/preview.md](./cli/preview.md) |
+| リモートの markdown / HTML / 画像 / PDF / 音声を手元のブラウザで見たい | [cli/hiraku.md](./cli/hiraku.md) |
 | worktree をどこに置けばいいか (ghq との関係) | [git/git-worktree.md 5 章](./git/git-worktree.md#5-置き場所の設計--集約派と隔離派) |
 | clone と worktree を `~/ghq` に集約したい (gwq) | [git/git-worktree.md 7 章](./git/git-worktree.md#7-集約派で揃える--gwq-と-herdr-を合わせる) |
 | worktree を消したのにブランチが残る / 消せない | [git/git-worktree.md 4 章](./git/git-worktree.md#4-ライフサイクル-素の-git) |
