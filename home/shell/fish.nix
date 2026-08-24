@@ -150,6 +150,15 @@ in
       # あちらは hm-session-vars.fish 経由で fish にも届くので、
       # ここに書くと二重定義になる。
 
+      # 起動時の "Welcome to fish, the friendly interactive shell" を消す。
+      # 既定の fish_greeting 関数は $fish_greeting を表示するだけなので、
+      # 空にすれば何も出ない (関数の再定義は不要)。
+      # pure のプロンプトは 1 行目から始まってほしいので黙らせる。
+      #
+      # fish は universal 変数として fish_greeting を持つことがあるが、
+      # global が universal より優先されるのでここでの set -g で上書きできる。
+      set -g fish_greeting ""
+
       # ─────────────────────────────────────────────────────
       # 暗すぎる文字色の底上げ (黒背景対策)
       #
