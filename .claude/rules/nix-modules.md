@@ -44,6 +44,8 @@ nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage  # 適用せ�
 ## 既存の設計判断 (覆さない)
 
 - `programs.neovim` は使わない (`~/.config/nvim` を Nix 管理外にするため)。
+  ただし `lua/plugins/*.lua` だけは `xdg.configFile` でファイル単位に配ってよい
+  (lazy.nvim が読むだけなので read-only symlink で困らない)。ディレクトリごとは不可。
 - `programs.claude-code.settings` は宣言しない (`~/.claude/settings.json` は CLI が書く)。
 - Nix 管理外の実ファイルと衝突する設定は `force = true` を検討する。
   `-b backup` は初回限りの回避策で、恒久対策には使わない。

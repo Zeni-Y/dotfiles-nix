@@ -86,7 +86,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │   │   └── fish.nix         #     fish + plugins (autopair/sponge/fzf.fish/pure) + alias
 │   ├── editors/             #   エディタ
 │   │   ├── default.nix
-│   │   └── neovim.nix       #     Neovim 本体 + LazyVim starter の初回取得
+│   │   ├── neovim.nix       #     Neovim 本体 + LazyVim starter の初回取得
+│   │   └── nvim/plugins/    #     → ~/.config/nvim/lua/plugins/ (配るものだけ)
 │   ├── claude-code/         #   Claude Code 本体 + 全プロジェクト共通の指示
 │   │   ├── default.nix
 │   │   ├── CLAUDE.md        #     → ~/.claude/CLAUDE.md

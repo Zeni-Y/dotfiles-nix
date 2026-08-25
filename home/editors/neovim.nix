@@ -10,8 +10,13 @@
 #
 # そこでここでは本体と LazyVim が前提にする外部コマンドだけを入れ、
 # ~/.config/nvim は Nix 管理外の実ディレクトリとして扱う。
-# エディタ側の設定 (options / keymaps / plugins) はすべて
+# エディタ側の設定 (options / keymaps / plugins) は原則
 # ~/.config/nvim/lua/ 配下に Lua で書く。
+#
+# 例外として lua/plugins/ の中の「マシンが変わっても同じにしたい」spec だけは
+# nvim/plugins/*.lua に置いて xdg.configFile で配る (下部参照)。
+# lazy.nvim は lua/plugins/*.lua を読むだけで書き戻さないので、
+# ここだけ read-only な symlink にしても init.lua や lazy-lock.json とは衝突しない。
 #
 # 旧 extraConfig にあった number / relativenumber / expandtab /
 # tabstop=2 / shiftwidth=2 / ignorecase / smartcase / termguicolors は
@@ -55,6 +60,17 @@ in
     vi = "nvim";
     vim = "nvim";
   };
+
+  # ─────────────────────────────────────────────────────────────
+  # lua/plugins/ に配る spec
+  #
+  # ディレクトリごとではなくファイル単位で置く。lua/plugins/ を丸ごと
+  # xdg.configFile にすると starter の example.lua と衝突するうえ、
+  # 手元で試しに 1 ファイル足すこともできなくなる。
+  # ここに無いファイルはこれまで通りユーザが自由に置ける。
+  # ─────────────────────────────────────────────────────────────
+  xdg.configFile."nvim/lua/plugins/snacks-explorer.lua".source =
+    ./nvim/plugins/snacks-explorer.lua;
 
   # ─────────────────────────────────────────────────────────────
   # LazyVim starter の初回取得
