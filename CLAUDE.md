@@ -52,8 +52,10 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 
 ## 意図的にそうしているもの (「きれいにする」提案をしない)
 
-- **`~/.config/nvim` は Nix 管理外。** `programs.neovim` は使わず `home.packages` で入れている。
+- **`~/.config/nvim` は原則 Nix 管理外。** `programs.neovim` は使わず `home.packages` で入れている。
   LazyVim starter の `init.lua` や `lazy-lock.json` と衝突するため。
+  例外は `home/editors/nvim/plugins/*.lua` — lazy.nvim が読むだけのファイルなので、
+  マシン間で揃えたい spec に限り `xdg.configFile` でファイル単位に配る。
 - **`~/.claude/settings.json` と auto memory も管理外。** Claude Code 自身が書き換えるファイル。
 - **`home/cli/gwq.nix` の `force = true`。** gwq が初回実行時に自分の config を作るため。
 - **abbreviation (`abbr`) であって alias ではない。** 履歴に展開後のコマンドを残し、

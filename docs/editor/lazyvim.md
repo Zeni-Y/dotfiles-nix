@@ -2,7 +2,8 @@
 
 エディタは Neovim に [LazyVim](https://www.lazyvim.org/) を載せた構成です。
 **Neovim 本体と外部コマンドだけを Nix で管理し、エディタ設定とプラグインは
-`~/.config/nvim` (Nix 管理外) に置く**、という分担になっています。
+`~/.config/nvim` (Nix 管理外) に置く**、という分担になっています
+(唯一の例外は [`lua/plugins/` に Nix が配るファイル](#nix-が配る-luaplugins-のファイル))。
 
 > 記載しているキーマップは、このリポジトリで実際に入っている LazyVim
 > (`install_version: 8`, picker/explorer が **snacks** な世代) のものです。
@@ -31,6 +32,7 @@
 | LazyVim が要求する外部コマンド (git, ripgrep, fd, lazygit, gcc, make, curl, unzip) | Nix (`home/packages.nix`, `home/git.nix`) | 同上 |
 | `EDITOR` / `VISUAL` / `vi`・`vim` エイリアス | Nix (`home/editors/neovim.nix`) | セッション変数とシェル alias |
 | **エディタ設定 (options / keymaps / plugins)** | **ユーザ (Nix 管理外)** | `~/.config/nvim/` |
+| うち「マシン間で揃えたい」プラグイン spec | Nix (`home/editors/nvim/plugins/`) | `~/.config/nvim/lua/plugins/<name>.lua` (symlink) |
 | **プラグイン本体** | **lazy.nvim** | `~/.local/share/nvim/lazy/` |
 | **LSP サーバ・フォーマッタ** | **mason.nvim** | `~/.local/share/nvim/mason/` |
 
@@ -99,6 +101,7 @@ rm -rf ~/.config/nvim/.git
 | `~/.config/nvim/lua/config/autocmds.lua` | ユーザ | autocmd |
 | `~/.config/nvim/lua/config/lazy.lua` | starter | lazy.nvim の bootstrap と LazyVim の読み込み |
 | `~/.config/nvim/lua/plugins/*.lua` | ユーザ | プラグインの追加・上書き (ファイル名は自由) |
+| `~/.config/nvim/lua/plugins/snacks-explorer.lua` | **Nix** | 下記「Nix が配る…」参照。読み取り専用の symlink |
 | `~/.config/nvim/lazy-lock.json` | lazy.nvim | プラグインの固定リビジョン (**git 管理推奨**) |
 | `~/.config/nvim/lazyvim.json` | LazyVim | 有効化した Extra の一覧 |
 | `~/.local/share/nvim/lazy/` | lazy.nvim | プラグインの実体 |
@@ -212,6 +215,26 @@ return {
 `tabstop=2` / `shiftwidth=2` / `ignorecase` / `smartcase` / `termguicolors` 等) は
 このリポジトリが以前 Nix 側の `extraConfig` で持っていた値と同じなので、
 移植は不要でした。変えたくなったら `options.lua` に書きます。
+
+### Nix が配る `lua/plugins/` のファイル
+
+「どのマシンでも同じにしたい」プラグイン spec に限り、この dotfiles 側に置いて
+`xdg.configFile` で `~/.config/nvim/lua/plugins/` に **ファイル単位で** symlink します。
+
+| dotfiles 側 | 配布先 | 中身 |
+| --- | --- | --- |
+| `home/editors/nvim/plugins/snacks-explorer.lua` | `~/.config/nvim/lua/plugins/snacks-explorer.lua` | ファイルツリーで隠しファイルと gitignore 済みを常時表示 (`.git` は除外) |
+
+`lua/plugins/*.lua` は lazy.nvim が**読むだけ**で書き戻さないため、read-only な
+Nix store への symlink でも困りません (`init.lua` や `lazy-lock.json` とはここが違う)。
+ディレクトリごと `xdg.configFile` にしないのは、starter の `example.lua` と衝突するのと、
+手元で 1 ファイル試しに足すことができなくなるからです。
+
+- **編集は dotfiles 側**。配布先を nvim から開いても Nix store なので保存できません。
+  直したら `home-manager switch` (人間が実行) で反映し、`:Lazy reload` か nvim 再起動。
+- **新しいファイルを足したら `git add`** を忘れないこと。flake は git 管理下しか見ません。
+- 既に同名の実ファイルが `~/.config/nvim/lua/plugins/` にあると activation が
+  `Existing file ... would be clobbered` で止まります。手元のものを退避してから switch します。
 
 ---
 
