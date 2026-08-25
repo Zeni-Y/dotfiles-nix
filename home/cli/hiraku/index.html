@@ -1,0 +1,76 @@
+<!-- いま動いている hiraku の一覧 (ポートの入口 "/" に出る)。
+     同じポートを複数の hiraku が共有し、URL の 1 段目で分かれるので、
+     「どの URL を開けばいいか」を引ける場所が要る。
+     セッションが 1 つだけならサーバー側が 303 でそこへ送るため、この
+     ページが出るのは 0 個か 2 個以上のとき。
+     2 秒ごとに引き直すのは、別のペインで hiraku を起動した / Ctrl-C した
+     のがこのページを開いたまま反映されるようにするため。 -->
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>hiraku</title>
+<style>
+:root { color-scheme: light dark; }
+body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; }
+h1 { font-size: 1.2rem; border-bottom: 1px solid #8884; padding-bottom: .3em; }
+ul { list-style: none; padding: 0; }
+li { margin: .4rem 0; }
+a { display: block; padding: .5em .7em; border: 1px solid #8884; border-radius: 6px; text-decoration: none; color: inherit; }
+a:hover { background: #8882; border-color: #4a90d9; }
+.name { font-weight: 600; }
+.paths { font-size: .85em; opacity: .7; overflow-wrap: anywhere; }
+.slug { font-size: .8em; opacity: .55; font-family: ui-monospace, monospace; }
+.none { opacity: .7; }
+code { background: #8881; padding: .1em .35em; border-radius: 4px; }
+</style></head>
+<body>
+<h1>いま見られる hiraku</h1>
+<div id="list"></div>
+<script>
+"use strict";
+
+var listEl = document.getElementById("list");
+
+function draw(sessions) {
+  listEl.textContent = "";
+  if (!sessions.length) {
+    var none = document.createElement("p");
+    none.className = "none";
+    none.textContent = "動いている hiraku が無い。リモートで hiraku を起動すると、ここに出る。";
+    listEl.appendChild(none);
+    return;
+  }
+  var ul = document.createElement("ul");
+  sessions.forEach(function (s) {
+    var a = document.createElement("a");
+    a.href = encodeURIComponent(s.slug) + "/" + (s.initial ? "#" + encodeURIComponent(s.initial) : "");
+    var name = document.createElement("div");
+    name.className = "name";
+    name.textContent = s.name;
+    var paths = document.createElement("div");
+    paths.className = "paths";
+    paths.textContent = s.paths.join("  /  ");
+    var slug = document.createElement("div");
+    slug.className = "slug";
+    slug.textContent = "/" + s.slug + "/";
+    a.appendChild(name);
+    a.appendChild(paths);
+    a.appendChild(slug);
+    var li = document.createElement("li");
+    li.appendChild(a);
+    ul.appendChild(li);
+  });
+  listEl.appendChild(ul);
+}
+
+function poll() {
+  fetch("api/sessions")
+    .then(function (r) { return r.json(); })
+    .then(function (j) { draw(j.sessions || []); })
+    .catch(function () { /* 窓口の引き継ぎ中は繋がらないので次の周期を待つ */ });
+}
+
+poll();
+setInterval(poll, 2000);
+</script>
+</body></html>

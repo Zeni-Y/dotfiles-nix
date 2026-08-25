@@ -10,6 +10,13 @@
 # 実体は python の小さなサーバー (hiraku/server.py) で、これを
 # **フォアグラウンドで** 起動する。Ctrl-C で止まり、止めたらブラウザからも
 # 見えなくなる。常時見たいならシェルの側でバックグラウンドに回す。
+#
+# **ポートは 1 つ (既定 4649) を全 hiraku で共有する。** 分かれるのは URL の
+# 1 段目で、対象のパスのハッシュから決まる (`/docs-1a2b3c/`)。起動のたびに
+# -p で別のポートを選び、ローカルの LocalForward を足すのが面倒だったため。
+# ハッシュにしてあるので同じ対象なら毎回同じ URL になる。ポートを掴んだ
+# プロセスが窓口になって全セッションを配信し、それが落ちたら残りの
+# プロセスが引き継ぐ。
 # 変換結果をディスクに残さない (旧版の ~/.cache/hiraku を廃止した) のは、
 # 「動かしている間だけ見える」を素直な作りで実現するため。md はリクエスト
 # ごとに pandoc に通すので、事前生成 (entr) も要らなくなった。
@@ -28,7 +35,7 @@
 #
 # ターミナル内に画像として描画する案 (Kitty graphics) も検証したが、
 # テキスト選択・コピーができない静止画になるため不採用にした。
-# 検証記録は docs/cli/hiraku.md 6 章。
+# 検証記録は docs/cli/hiraku.md 7 章。
 # ─────────────────────────────────────────────────────────────
 { pkgs, ... }:
 
@@ -37,6 +44,7 @@ let
   # ''${ } を Nix にエスケープさせずに済み、エディタの支援も効くため。
   hirakuServer = ./hiraku/server.py;
   hirakuApp = ./hiraku/app.html;
+  hirakuIndex = ./hiraku/index.html;
   hirakuCss = ./hiraku/style.css;
   hirakuPlayer = ./hiraku/player.html;
   hirakuImage = ./hiraku/image.html;
@@ -57,21 +65,25 @@ let
       SSH の LocalForward 越しにブラウザで開く。画面はファイルツリー +
       プレビューの 2 ペイン。
 
+      ポートは常に同じで、URL の 1 段目 (対象のパスから決まるハッシュ) で
+      分かれる。何個 hiraku を起動しても LocalForward は 1 行のままでよく、
+      同じ対象なら毎回同じ URL になる。http://localhost:PORT/ を開くと
+      いま動いている hiraku の一覧が出る (1 つだけならそこへ飛ぶ)。
+
       対応形式: markdown / HTML / 画像 (png jpg gif svg webp avif bmp ico) /
                 PDF / 音声 (mp3 wav ogg flac m4a aac opus)。音声は波形表示・
                 クリックでのシーク・L/R チャンネル切替ができるプレーヤーで開く。
                 画像は左クリックで拡大・Ctrl+左クリックで縮小・長押しで移動
                 できるビューアで開き、倍率を右上に表示する。
 
-        -p PORT   待ち受けポート (既定 4649)
+        -p PORT   待ち受けポート (既定 4649)。変える必要はほぼ無い
 
       Ctrl-C で終了する。終了するとブラウザからは見えなくなる (変換結果を
       ディスクに残さないため)。ログアウトしても見続けたいなら
       `hiraku docs/ &; disown` のようにバックグラウンドへ回す。
 
       ファイルを渡すとその親ディレクトリが対象になり、そのファイルを開いた
-      状態で始まる。複数指定すると 1 つのサーバーでまとめて配信する
-      (ポートが増えないので LocalForward は 1 行のままでよい)。
+      状態で始まる。複数指定すると 1 つの画面にまとめて出る。
       EOF
       }
 
@@ -103,6 +115,7 @@ let
       exec python3 ${hirakuServer} \
         --port "$port" \
         --asset "app=${hirakuApp}" \
+        --asset "index=${hirakuIndex}" \
         --asset "css=${hirakuCss}" \
         --asset "player=${hirakuPlayer}" \
         --asset "image=${hirakuImage}" \
