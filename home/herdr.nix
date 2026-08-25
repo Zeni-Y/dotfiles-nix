@@ -62,6 +62,29 @@
       # ui.hide_tab_bar_when_single_tab など。
       # 設定を足したときは `herdr config check` で不明キーが無いか確認する。
 
+      # ─── サイドバーのエージェント行に Claude の会話タイトルを出す ───
+      #
+      # 既定は rows = [["state_icon","workspace","tab"], ["agent"]] で、
+      # 2 行目が常に "claude" になる。同じリポジトリで複数セッションを
+      # 並行させると 1 行目の workspace (= ディレクトリ名) まで同じになり、
+      # サイドバーからはどのペインがどの会話なのか区別できない。
+      #
+      # Claude Code は会話の要約をターミナルタイトルとして送っていて、
+      # herdr はそれを terminal_title (状態記号つき) と
+      # terminal_title_stripped (記号を除いたもの) で保持している
+      # (`herdr agent list` の JSON で確認できる)。2 行目をこれに差し替えると
+      # 行そのものが会話名になる。エージェントの種別は状態記号と色で分かるので
+      # "claude" の行は落としてよい。
+      #
+      # rows ではなく rows_by_agent で claude だけに効かせるのは、
+      # ターミナルタイトルを送らないエージェントで 2 行目が空になるのを避けるため。
+      ui = {
+        sidebar.agents.rows_by_agent.claude = [
+          [ "state_icon" "workspace" "tab" ]
+          [ "terminal_title_stripped" ]
+        ];
+      };
+
       session = {
         # 復元時にエージェントのセッションも再開する。
         resume_agents_on_restore = true;
