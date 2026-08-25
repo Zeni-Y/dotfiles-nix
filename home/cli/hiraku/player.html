@@ -1,5 +1,5 @@
 <!-- hiraku の音声プレーヤー (全プレビュー共通の静的ページ)。
-     ?src=/view/<スラグ>/<ファイル> で対象を受ける。
+     ?src=view/<対象>/<ファイル> (/<セッション>/ からの相対) で対象を受ける。
      波形はブラウザが音声ファイルを fetch + decodeAudioData して描く。
      サーバー側で波形画像を作らないのは、静的配信だけで済ませて
      リモートの依存 (ffmpeg など) を増やさないため。
@@ -36,7 +36,7 @@ var audio = document.getElementById("audio");
 var canvas = document.getElementById("wave");
 var cctx = canvas.getContext("2d");
 var statusEl = document.getElementById("status");
-if (!src) { statusEl.textContent = "?src=/<スラグ>/<ファイル> の指定がない"; throw new Error("no src"); }
+if (!src) { statusEl.textContent = "?src=view/<対象>/<ファイル> の指定がない"; throw new Error("no src"); }
 var name = decodeURIComponent(src.split("/").pop());
 document.getElementById("name").textContent = name;
 document.title = name;

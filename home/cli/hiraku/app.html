@@ -1,9 +1,13 @@
 <!-- hiraku の 2 ペイン画面。左がファイルツリー、右がプレビューの iframe。
-     ツリーは /api/tree で 1 階層ずつ取りに行く (最初はディレクトリを畳んだ
+     ツリーは api/tree で 1 階層ずつ取りに行く (最初はディレクトリを畳んだ
      状態で出し、クリックで開閉する)。全部を再帰的に出さないのは、大きな
      ディレクトリでも開くのが軽く、目的のファイルを探しやすいため。
-     ファイルの変更は /api/events (SSE) で受けて、開いているファイルだけを
-     読み込み直す。 -->
+     ファイルの変更は api/events (SSE) で受けて、開いているファイルだけを
+     読み込み直す。
+
+     URL は /<セッション>/ で配信される。API も view も **相対 URL** で書いて
+     あるので、このページはセッションのスラグを知らなくてよい (サーバーが
+     必ず / で終わる URL に揃えている)。 -->
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -24,6 +28,7 @@ body { display: flex; height: 100vh; margin: 0; font-family: system-ui, sans-ser
 #tree .mark { flex: 0 0 1em; opacity: .7; font-size: .8em; }
 #tree .kids { margin-left: .8em; border-left: 1px solid #8883; }
 #tree .empty { opacity: .6; padding: .3em .5em; font-size: .9em; }
+#tree .gone { padding: .4em .5em; font-size: .9em; color: #c0392b; }
 
 #split { flex: 0 0 6px; cursor: col-resize; background: #8882; }
 #split:hover, body.dragging #split { background: #4a90d9; }
@@ -57,34 +62,40 @@ var filterEl = document.getElementById("filter");
 var titleEl = document.getElementById("title");
 var frame = document.getElementById("content");
 
+// 同じポートを複数のセッションで共有するので、開閉の状態はセッションごとに
+// 分けて覚える (別の対象のパスが混ざると畳み方がおかしくなる)。幅とフィルタは
+// 好みの問題なので全セッションで共有したままにする。
+var openKey = "hiraku.open:" + location.pathname;
+
 var state = {
   filter: localStorage.getItem("hiraku.filter") || "all",
   // 開いているディレクトリの仮想パス。復元するのは、保存のたびに
   // ツリーを作り直しても畳まれてしまわないようにするため
-  open: new Set(JSON.parse(localStorage.getItem("hiraku.open") || "[]")),
+  open: new Set(JSON.parse(localStorage.getItem(openKey) || "[]")),
   current: null
 };
 filterEl.value = state.filter;
 
 function save() {
   localStorage.setItem("hiraku.filter", state.filter);
-  localStorage.setItem("hiraku.open", JSON.stringify(Array.from(state.open)));
+  localStorage.setItem(openKey, JSON.stringify(Array.from(state.open)));
 }
 
 // ─── ツリー ───
 
 function fetchDir(path) {
-  return fetch("/api/tree?path=" + encodeURIComponent(path) + "&filter=" + state.filter)
+  return fetch("api/tree?path=" + encodeURIComponent(path) + "&filter=" + state.filter)
     .then(function (r) { return r.ok ? r.json() : { entries: [] }; })
     .then(function (j) { return j.entries || []; })
     .catch(function () { return []; });
 }
 
 function viewUrl(entry) {
-  var src = "/view/" + entry.path.split("/").map(encodeURIComponent).join("/");
-  // 音声と画像だけは専用のページ経由で開く (波形 / 拡大縮小のため)
-  if (entry.kind === "audio") return "/player.html?src=" + encodeURIComponent(src);
-  if (entry.kind === "image") return "/image.html?src=" + encodeURIComponent(src);
+  var src = "view/" + entry.path.split("/").map(encodeURIComponent).join("/");
+  // 音声と画像だけは専用のページ経由で開く (波形 / 拡大縮小のため)。
+  // src も相対なので、player.html / image.html 側で同じ /<セッション>/ に解決される
+  if (entry.kind === "audio") return "player.html?src=" + encodeURIComponent(src);
+  if (entry.kind === "image") return "image.html?src=" + encodeURIComponent(src);
   return src;
 }
 
@@ -221,16 +232,40 @@ function reloadContent() {
   frame.contentWindow.location.reload();
 }
 
-var events = new EventSource("/api/events");
+var events = new EventSource("api/events");
+
+// 出していた hiraku が終わったとき。黙って 404 になると理由が分からないので、
+// ツリーを畳んで「終わった」と出す (再接続もやめる)
+var gone = false;
+function markGone() {
+  if (gone) return;
+  gone = true;
+  events.close();
+  treeEl.textContent = "";
+  var msg = document.createElement("div");
+  msg.className = "gone";
+  msg.textContent = "この hiraku は終了した";
+  treeEl.appendChild(msg);
+}
+
 events.onmessage = function (ev) {
   var d = JSON.parse(ev.data);
+  if (d.gone) return markGone();
   if (d.structure) refresh();
   if (state.current && d.changed.indexOf(state.current) !== -1) reloadContent();
 };
 
+// 終了を伝えられるのは、窓口 (ポートを持っているプロセス) が生き残って
+// いる場合だけ。自分を出していた hiraku が窓口ごと落ちたときは接続が切れる
+// だけなので、こちらで確かめる。窓口の引き継ぎ中は数秒つながらないので、
+// 「繋がらない」ではなく「404 が返る」を終了の合図にする
+events.onerror = function () {
+  fetch("api/roots").then(function (r) { if (!r.ok) markGone(); }).catch(function () {});
+};
+
 // ─── 起動 ───
 
-fetch("/api/roots").then(function (r) { return r.json(); }).then(function (info) {
+fetch("api/roots").then(function (r) { return r.json(); }).then(function (info) {
   var names = info.roots.map(function (r) { return r.name; });
   titleEl.textContent = names.join(" / ") || "hiraku";
   titleEl.title = info.roots.map(function (r) { return r.path; }).join("\n");

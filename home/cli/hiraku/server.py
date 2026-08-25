@@ -11,24 +11,48 @@ pandoc に通す。
 監視スレッドが検知して SSE (/api/events) でブラウザに伝え、ブラウザが
 開き直すことで即座に反映される。
 
+**ポートは 1 つ、URL の 1 段目でセッションを分ける。** 起動するたびに
+`-p` で別のポートを選び、ローカル側の LocalForward を足す運用が面倒だった
+ため、複数の hiraku が同じポート (既定 4649) を共有する。仕組み:
+
+  - 起動したプロセスは対象の realpath から求めたハッシュを「セッション」の
+    名前 (スラグ) とし、状態ファイルを $XDG_RUNTIME_DIR/hiraku/<ポート>/ に置く。
+    同じ対象なら毎回同じ URL になるので、ブックマークできる。
+  - ポートを掴めたプロセスが「窓口」になり、**生きている全セッション**を
+    /<スラグ>/... で配信する。状態ファイルは対象のパスしか持たないので、
+    窓口は他プロセスの対象もディスクから直接読める (中継は要らない)。
+  - 窓口が Ctrl-C で落ちたら、残っているプロセスが 1 秒以内にポートを
+    引き継ぐ。ブラウザ側は SSE が勝手に再接続するので繋ぎ直さなくてよい。
+  - 生死は状態ファイルの pid + /proc の起動時刻で判定する。SIGKILL された
+    プロセスの置き土産は、次に読んだ誰かが消す。
+
 URL の構成:
-    /                       2 ペインのアプリ本体 (app.html)
-    /hiraku.css             pandoc 出力に当てる CSS
-    /player.html            音声プレーヤー
-    /image.html             画像ビューア (拡大縮小・移動)
-    /api/roots              対象一覧と初期選択
-    /api/tree?path=&filter= 1 階層ぶんのツリー (遅延展開用)
-    /api/events             変更通知 (SSE)
-    /view/<スラグ>/<相対パス>  md は変換して、それ以外は実体を配信
+    /                          セッション一覧 (1 つだけなら そこへ 303)
+    /hiraku.css                pandoc 出力に当てる CSS (全セッション共通)
+    /api/sessions              生きているセッションの一覧
+    /<スラグ>/                 2 ペインのアプリ本体 (app.html)
+    /<スラグ>/player.html      音声プレーヤー
+    /<スラグ>/image.html       画像ビューア (拡大縮小・移動)
+    /<スラグ>/api/roots        対象一覧と初期選択
+    /<スラグ>/api/tree?path=&filter=  1 階層ぶんのツリー (遅延展開用)
+    /<スラグ>/api/events       変更通知 (SSE)
+    /<スラグ>/view/<対象>/<相対パス>  md は変換して、それ以外は実体を配信
+
+セッション配下の URL をすべて /<スラグ>/ 起点にしてあるので、画面側 (app.html)
+は相対 URL だけで書ける。スラグを JS に埋め込まずに済む。
 """
 
 import argparse
+import errno
+import hashlib
+import http.client
 import json
 import mimetypes
 import os
 import queue
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -56,11 +80,160 @@ SKIP_DIRS = {"node_modules"}
 WATCH_INTERVAL = 0.7
 WATCH_MAX_ENTRIES = 50000
 
-ROOTS = {}          # スラグ -> 絶対パス (realpath 済み)
-INITIAL = None      # 起動時に開いておく仮想パス ("スラグ/相対パス") か None
+# 窓口を譲り受けるまでの待ち時間。Ctrl-C からの引き継ぎがブラウザの
+# SSE 再接続 (既定 3 秒) より速く済むように短くしてある。
+TAKEOVER_INTERVAL = 1.0
+
+SERVER_NAME = "hiraku"
+
 ASSETS = {}         # 静的ファイルの実体パス
-CLIENTS = set()     # SSE クライアントの Queue
+STATE_DIR = None    # セッションの状態ファイルを置くディレクトリ
+CLIENTS = set()     # (スラグ, Queue) の集合 (SSE クライアント)
 CLIENTS_LOCK = threading.Lock()
+
+_sessions_cache = ({}, 0.0)
+_sessions_lock = threading.Lock()
+
+
+# ────────────────────── セッションの登録と一覧 ──────────────────────
+
+def state_dir_for(port):
+    """状態ファイルの置き場。ポートごとに分けるのは、-p で別ポートを選んだ
+    hiraku を「別の世界」にするため (窓口が他ポートの対象まで配信しない)。"""
+    base = os.environ.get("XDG_RUNTIME_DIR")
+    if not base or not os.path.isdir(base):
+        # /tmp は他人と共有なので、自分のものだと確かめてから使う
+        base = os.path.join("/tmp", "hiraku-%d" % os.getuid())
+        os.makedirs(base, mode=0o700, exist_ok=True)
+        st = os.lstat(base)
+        if not os.path.isdir(base) or st.st_uid != os.getuid() or os.path.islink(base):
+            raise SystemExit("%s が使えない (自分のディレクトリではない)" % base)
+    path = os.path.join(base, "hiraku", str(port))
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    return path
+
+
+def proc_starttime(pid):
+    """/proc/<pid>/stat の 22 番目 (プロセスの起動時刻)。pid の使い回しで
+    死んだセッションを生きていると誤認しないための照合用。"""
+    try:
+        with open("/proc/%d/stat" % pid, "rb") as f:
+            data = f.read()
+    except OSError:
+        return None
+    try:
+        # comm には空白も ')' も入りうるので最後の ')' から切る
+        return int(data[data.rindex(b")") + 2:].split()[19])
+    except (ValueError, IndexError):
+        return None
+
+
+def scan_sessions():
+    """状態ファイルを読んで、生きているセッションだけを返す。
+
+    死んでいるものはここで消す。持ち主が Ctrl-C で終われば自分で片付けるが、
+    SIGKILL されると残るため、読んだ側が掃除する役目も持たせている。
+    """
+    found = {}
+    try:
+        names = os.listdir(STATE_DIR)
+    except OSError:
+        return found
+    for name in names:
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(STATE_DIR, name)
+        try:
+            with open(path, "rb") as f:
+                rec = json.loads(f.read().decode("utf-8"))
+            pid, started = int(rec["pid"]), int(rec["started"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if proc_starttime(pid) != started:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            continue
+        found[rec["slug"]] = rec
+    return found
+
+
+def sessions():
+    """scan_sessions() を 0.3 秒だけ使い回す。1 リクエストで何度も呼ぶので。"""
+    global _sessions_cache
+    now = time.monotonic()
+    with _sessions_lock:
+        cached, at = _sessions_cache
+        if now - at < 0.3:
+            return cached
+    fresh = scan_sessions()
+    with _sessions_lock:
+        _sessions_cache = (fresh, now)
+    return fresh
+
+
+def forget_sessions_cache():
+    global _sessions_cache
+    with _sessions_lock:
+        _sessions_cache = ({}, 0.0)
+
+
+def slug_for(roots):
+    """対象からセッションのスラグを決める。
+
+    「読める名前 + パスのハッシュ」。ハッシュにするのは、同じ対象を開けば
+    毎回同じ URL になってブックマークできるようにするため。読める名前を
+    前に付けるのは、一覧やブラウザの履歴で見分けられるようにするため。
+    """
+    paths = sorted(roots.values())
+    digest = hashlib.sha256("\0".join(paths).encode("utf-8")).hexdigest()[:6]
+    base = os.path.basename(paths[0].rstrip("/")) or "root"
+    base = "".join(c if c.isalnum() or c in "._-" else "-" for c in base)[:24]
+    return "%s-%s" % (base.strip("-.") or "root", digest)
+
+
+def register(roots, initial):
+    """自分のセッションを状態ファイルに置き、使ったスラグを返す。
+
+    同じ対象を 2 つ同時に開いたときだけスラグが埋まっているので、その場合は
+    -2, -3 と後ろに足す。
+    """
+    base = slug_for(roots)
+    live = scan_sessions()
+    for n in range(1, 100):
+        slug = base if n == 1 else "%s-%d" % (base, n)
+        if slug in live:
+            continue
+        rec = {
+            "slug": slug,
+            "pid": os.getpid(),
+            "started": proc_starttime(os.getpid()),
+            "roots": roots,
+            "initial": initial,
+        }
+        path = os.path.join(STATE_DIR, slug + ".json")
+        tmp = "%s.%d.tmp" % (path, os.getpid())
+        # 書きかけを他プロセスに読ませないよう rename で差し替える
+        with open(tmp, "wb") as f:
+            f.write(json.dumps(rec, ensure_ascii=False).encode("utf-8"))
+        os.replace(tmp, path)
+        forget_sessions_cache()
+        return slug
+    raise SystemExit("同じ対象のセッションが多すぎる")
+
+
+def unregister(slug):
+    """自分の状態ファイルを消す。終了した瞬間にブラウザから見えなくなる。"""
+    path = os.path.join(STATE_DIR, slug + ".json")
+    try:
+        with open(path, "rb") as f:
+            rec = json.loads(f.read().decode("utf-8"))
+        if int(rec.get("pid", -1)) != os.getpid():
+            return  # 取り違え防止 (自分のでなければ触らない)
+        os.unlink(path)
+    except (OSError, ValueError):
+        pass
 
 
 # ─────────────────────────── パスの解決 ───────────────────────────
@@ -73,8 +246,8 @@ def skip(name):
     return name.startswith(".") or name in SKIP_DIRS
 
 
-def resolve(vpath):
-    """仮想パス "スラグ/a/b.md" を絶対パスにする。対象の外なら None。
+def resolve(roots, vpath):
+    """仮想パス "対象/a/b.md" を絶対パスにする。対象の外なら None。
 
     realpath したうえで root 配下かを確かめる。symlink を踏んで
     配信対象の外に出る URL を弾くため (届く経路は SSH トンネルだけとはいえ、
@@ -83,7 +256,7 @@ def resolve(vpath):
     parts = [p for p in vpath.split("/") if p not in ("", ".")]
     if not parts:
         return None
-    root = ROOTS.get(parts[0])
+    root = roots.get(parts[0])
     if root is None or ".." in parts:
         return None
     target = os.path.realpath(os.path.join(root, *parts[1:]))
@@ -117,9 +290,9 @@ def dir_has_match(path, want, depth=0):
     return any(dir_has_match(d, want, depth + 1) for d in subdirs)
 
 
-def list_dir(vdir, want):
+def list_dir(roots, vdir, want):
     """vdir 直下のエントリを [ディレクトリ..., ファイル...] の順で返す。"""
-    target = resolve(vdir)
+    target = resolve(roots, vdir)
     if target is None or not os.path.isdir(target):
         return None
     dirs, files = [], []
@@ -144,8 +317,8 @@ def list_dir(vdir, want):
 
 # ─────────────────────────── 変更の監視 ───────────────────────────
 
-def snapshot():
-    """配信対象の (仮想パス -> mtime,size) を集める。差分が変更通知になる。
+def snapshot(live):
+    """生きている全セッションの (スラグ, 仮想パス) -> mtime,size を集める。
 
     inotify を使わないのは、依存を増やさずに済ませるため。対象は
     ドキュメントのディレクトリ程度を想定していて、0.7 秒ごとの走査で足りる。
@@ -155,58 +328,78 @@ def snapshot():
     """
     snap = {}
     budget = WATCH_MAX_ENTRIES
-    for slug, root in ROOTS.items():
-        stack = [(root, slug)]
-        while stack and budget > 0:
-            path, vpath = stack.pop()
-            try:
-                with os.scandir(path) as it:
-                    for e in it:
-                        if skip(e.name):
-                            continue
-                        budget -= 1
-                        if budget <= 0:
-                            break
-                        child = vpath + "/" + e.name
-                        if e.is_dir(follow_symlinks=False):
-                            snap[child] = "d"
-                            stack.append((e.path, child))
-                        elif e.is_file() and kind_of(e.name):
-                            st = e.stat()
-                            snap[child] = (st.st_mtime_ns, st.st_size)
-            except OSError:
-                continue
+    for slug, sess in live.items():
+        for rslug, root in sess["roots"].items():
+            stack = [(root, rslug)]
+            while stack and budget > 0:
+                path, vpath = stack.pop()
+                try:
+                    with os.scandir(path) as it:
+                        for e in it:
+                            if skip(e.name):
+                                continue
+                            budget -= 1
+                            if budget <= 0:
+                                break
+                            child = vpath + "/" + e.name
+                            if e.is_dir(follow_symlinks=False):
+                                snap[(slug, child)] = "d"
+                                stack.append((e.path, child))
+                            elif e.is_file() and kind_of(e.name):
+                                st = e.stat()
+                                snap[(slug, child)] = (st.st_mtime_ns, st.st_size)
+                except OSError:
+                    continue
     return snap, budget <= 0
 
 
-def broadcast(payload):
+def broadcast(slug, payload):
+    """1 セッションのクライアントにだけ送る。他のセッションの更新で
+    関係のないブラウザが読み直さないように。"""
     data = json.dumps(payload, ensure_ascii=False)
     with CLIENTS_LOCK:
-        targets = list(CLIENTS)
+        targets = [q for s, q in CLIENTS if s == slug]
     for q in targets:
         q.put(data)
 
 
 def watch():
-    prev, truncated = snapshot()
+    live = sessions()
+    prev, truncated = snapshot(live)
     if truncated:
         print("対象が大きすぎるので変更の監視を一部だけにする "
               "(見えていないファイルの更新は反映されない)", file=sys.stderr)
+    known = set(live)
     while True:
         time.sleep(WATCH_INTERVAL)
-        cur, truncated = snapshot()
+        forget_sessions_cache()
+        live = sessions()
+        # 終わったセッションのブラウザには「終わった」と伝える。黙って
+        # 404 を返すだけだと、なぜ見えなくなったのか分からない
+        for slug in known - set(live):
+            broadcast(slug, {"gone": True})
+        known = set(live)
+        cur, truncated = snapshot(live)
         if cur == prev:
             continue
         changed = [p for p in cur if prev.get(p) != cur[p]]
         # 打ち切ったときの「消えた」は走査が届かなかっただけのことがあるので
         # 削除として扱わない (毎回ツリーを作り直してしまう)
         removed = [] if truncated else [p for p in prev if p not in cur]
-        # ファイルの増減はツリーの作り直しが要る。中身だけの変更なら
-        # 開いているファイルの再読み込みで済む
-        structure = bool(removed) or any(prev.get(p) is None for p in changed)
+        news = {p for p in changed if prev.get(p) is None}
         prev = cur
-        if changed or removed:
-            broadcast({"changed": changed + removed, "structure": structure})
+        by_slug = {}
+        for slug, vpath in changed + removed:
+            entry = by_slug.setdefault(slug, {"changed": [], "structure": False})
+            entry["changed"].append(vpath)
+        for slug, vpath in removed:
+            by_slug[slug]["structure"] = True
+        for slug, vpath in news:
+            by_slug[slug]["structure"] = True
+        for slug, payload in by_slug.items():
+            # ファイルの増減はツリーの作り直しが要る。中身だけの変更なら
+            # 開いているファイルの再読み込みで済む
+            broadcast(slug, payload)
 
 
 # ─────────────────────────── 変換と配信 ───────────────────────────
@@ -214,9 +407,10 @@ def watch():
 def render_md(path):
     """markdown を pandoc で HTML にする。失敗しても画面に理由を出す。
 
-    --embed-resources は使わない。ページ自身が /view/<スラグ>/<ディレクトリ>/
-    という URL で配信されるので、相対パスの画像や CSS はブラウザが同じ
-    サーバーに取りに来て解決できる (他の md へのリンクもそのまま辿れる)。
+    --embed-resources は使わない。ページ自身が
+    /<スラグ>/view/<対象>/<ディレクトリ>/ という URL で配信されるので、
+    相対パスの画像や CSS はブラウザが同じサーバーに取りに来て解決できる
+    (他の md へのリンクもそのまま辿れる)。
     """
     try:
         proc = subprocess.run(
@@ -263,7 +457,7 @@ def content_type(path):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "hiraku"
+    server_version = SERVER_NAME
     protocol_version = "HTTP/1.1"
 
     def log_message(self, *args):
@@ -292,55 +486,83 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(parsed.path)
         query = parse_qs(parsed.query)
 
-        if path == "/":
-            return self.send_asset("app", "text/html; charset=utf-8", head_only)
+        # ── セッションをまたぐ URL ──
         if path == "/hiraku.css":
             return self.send_asset("css", "text/css; charset=utf-8", head_only)
-        if path == "/player.html":
+        if path == "/api/sessions":
+            return self.send_json({"sessions": [
+                {"slug": s,
+                 "name": " / ".join(os.path.basename(p) or p for p in r["roots"].values()),
+                 "paths": sorted(r["roots"].values()),
+                 "initial": r["initial"]}
+                for s, r in sorted(sessions().items())
+            ]}, head_only)
+        if path == "/":
+            live = sessions()
+            # 1 つしか動いていないなら選ばせる意味がないので直行する
+            # (localhost:4649 を開くだけ、という今までの手癖を残すため)
+            if len(live) == 1:
+                return self.redirect("/%s/" % quote(next(iter(live))))
+            return self.send_asset("index", "text/html; charset=utf-8", head_only)
+
+        # ── セッション配下 ──
+        slug, _, rest = path.lstrip("/").partition("/")
+        sess = sessions().get(slug)
+        if sess is None:
+            return self.fail(404, "そのプレビューは終わっている: /%s/" % slug)
+        rest = "/" + rest
+        if rest == "/":
+            if not path.endswith("/"):
+                # 相対 URL の起点をセッションに揃えるため必ず / で終わらせる
+                return self.redirect("/%s/" % quote(slug))
+            return self.send_asset("app", "text/html; charset=utf-8", head_only)
+        if rest == "/player.html":
             return self.send_asset("player", "text/html; charset=utf-8", head_only)
-        if path == "/image.html":
+        if rest == "/image.html":
             return self.send_asset("image", "text/html; charset=utf-8", head_only)
-        if path == "/api/roots":
+        if rest == "/api/roots":
             return self.send_json({
+                "slug": slug,
                 "roots": [{"slug": s, "name": os.path.basename(p) or p, "path": p}
-                          for s, p in ROOTS.items()],
-                "initial": INITIAL,
+                          for s, p in sess["roots"].items()],
+                "initial": sess["initial"],
             }, head_only)
-        if path == "/api/tree":
-            return self.api_tree(query, head_only)
-        if path == "/api/events":
-            return self.api_events(head_only)
-        if path.startswith("/view/"):
-            return self.view(path[len("/view/"):], head_only)
+        if rest == "/api/tree":
+            return self.api_tree(sess, query, head_only)
+        if rest == "/api/events":
+            return self.api_events(slug, head_only)
+        if rest.startswith("/view/"):
+            return self.view(sess, rest[len("/view/"):], head_only)
         self.fail(404, "not found")
 
     # ── API ──
 
-    def api_tree(self, query, head_only):
+    def api_tree(self, sess, query, head_only):
+        roots = sess["roots"]
         want = query.get("filter", ["all"])[0]
         want = ALL_KINDS if want == "all" else frozenset({want} & ALL_KINDS)
         vdir = query.get("path", [""])[0].strip("/")
         if not vdir:
             # 空指定は対象そのものの一覧。対象が 1 つならその中身を返して、
             # ルートのノードを 1 段はさまずに済ませる
-            if len(ROOTS) == 1:
-                slug = next(iter(ROOTS))
-                entries = list_dir(slug, want)
+            if len(roots) == 1:
+                entries = list_dir(roots, next(iter(roots)), want)
             else:
                 entries = [{"name": os.path.basename(p) or p, "path": s, "type": "dir"}
-                           for s, p in ROOTS.items()]
+                           for s, p in roots.items()]
             return self.send_json({"entries": entries or []}, head_only)
-        entries = list_dir(vdir, want)
+        entries = list_dir(roots, vdir, want)
         if entries is None:
             return self.fail(404, "no such directory")
         self.send_json({"entries": entries}, head_only)
 
-    def api_events(self, head_only):
+    def api_events(self, slug, head_only):
         if head_only:
             return self.fail(405, "GET only")
         q = queue.Queue()
+        client = (slug, q)
         with CLIENTS_LOCK:
-            CLIENTS.add(q)
+            CLIENTS.add(client)
         try:
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -361,13 +583,13 @@ class Handler(BaseHTTPRequestHandler):
             pass
         finally:
             with CLIENTS_LOCK:
-                CLIENTS.discard(q)
+                CLIENTS.discard(client)
             self.close_connection = True
 
     # ── 実ファイル ──
 
-    def view(self, vpath, head_only):
-        target = resolve(vpath.strip("/"))
+    def view(self, sess, vpath, head_only):
+        target = resolve(sess["roots"], vpath.strip("/"))
         if target is None or not os.path.isfile(target):
             return self.fail(404, "no such file")
         if kind_of(target) == "md":
@@ -425,6 +647,13 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── 返信の下請け ──
 
+    def redirect(self, location):
+        self.send_response(303)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
     def send_asset(self, key, ctype, head_only):
         with open(ASSETS[key], "rb") as f:
             self.send_bytes(f.read(), ctype, head_only)
@@ -453,6 +682,64 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+# ─────────────────────────── 窓口の受け渡し ───────────────────────────
+
+def try_bind(port):
+    """ポートを掴めたら HTTP サーバーを返す。埋まっていたら None。
+
+    SO_REUSEADDR は TIME_WAIT を跨ぐためのもので、待ち受け中のプロセスが
+    いれば bind は失敗する。この失敗をそのまま「窓口は他にいる」の判定に使う。
+    """
+    ThreadingHTTPServer.allow_reuse_address = True
+    ThreadingHTTPServer.daemon_threads = True  # SSE 接続が残っていても終了できるように
+    try:
+        return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    except OSError as e:
+        if e.errno in (errno.EADDRINUSE, errno.EACCES):
+            return None
+        raise
+
+
+def is_hiraku(port):
+    """埋まっているポートの相手が hiraku かどうか。
+
+    無関係なプロセスが 4649 を使っているとき、黙って待ち続けると
+    「開いたのに何も見えない」になるので、起動時に 1 度だけ確かめる。
+    """
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=1.5)
+        try:
+            conn.request("HEAD", "/api/sessions")
+            resp = conn.getresponse()
+            resp.read()
+            return SERVER_NAME in (resp.getheader("Server") or "")
+        finally:
+            conn.close()
+    except (OSError, http.client.HTTPException, socket.timeout):
+        return False
+
+
+def serve(port, httpd=None):
+    """ポートが空くまで待ち、掴めたら窓口として配信し続ける。
+
+    窓口が Ctrl-C で落ちても、待っていたプロセスが引き継ぐので
+    「他のセッションまで道連れで見えなくなる」ことがない。httpd を渡せる
+    のは、起動時に掴めたソケットを閉じずにそのまま使うため (閉じてから
+    掴み直すと、その隙に別のプロセスに取られる)。
+    """
+    watching = False
+    while True:
+        if httpd is None:
+            httpd = try_bind(port)
+        if httpd is None:
+            time.sleep(TAKEOVER_INTERVAL)
+            continue
+        if not watching:
+            threading.Thread(target=watch, daemon=True).start()
+            watching = True
+        httpd.serve_forever()
+
+
 # ─────────────────────────── 起動 ───────────────────────────
 
 def make_slug(path, used):
@@ -463,6 +750,27 @@ def make_slug(path, used):
         candidate = "%s-%d" % (slug, n)
         n += 1
     return candidate
+
+
+def collect_targets(targets):
+    """引数から (対象スラグ -> 絶対パス, 最初に開く仮想パス) を作る。"""
+    roots, initial = {}, None
+    for target in targets:
+        target = os.path.realpath(target)
+        if os.path.isdir(target):
+            root, rel = target, None
+        else:
+            # ファイルを渡された場合は親ディレクトリを対象にして、その
+            # ファイルを開いた状態で始める。隣のファイルへも移れる方が
+            # 「ディレクトリを開き直す」より手数が少ない
+            root, rel = os.path.dirname(target), os.path.basename(target)
+        slug = next((s for s, p in roots.items() if p == root), None)
+        if slug is None:
+            slug = make_slug(root, roots)
+            roots[slug] = root
+        if rel and initial is None:
+            initial = slug + "/" + rel
+    return roots, initial
 
 
 def main():
@@ -476,53 +784,40 @@ def main():
         key, _, path = item.partition("=")
         ASSETS[key] = path
 
-    global INITIAL
-    for target in opts.targets:
-        target = os.path.realpath(target)
-        if os.path.isdir(target):
-            root = target
-            rel = None
-        else:
-            # ファイルを渡された場合は親ディレクトリを対象にして、その
-            # ファイルを開いた状態で始める。隣のファイルへも移れる方が
-            # 「ディレクトリを開き直す」より手数が少ない
-            root, rel = os.path.dirname(target), os.path.basename(target)
-        slug = next((s for s, p in ROOTS.items() if p == root), None)
-        if slug is None:
-            slug = make_slug(root, ROOTS)
-            ROOTS[slug] = root
-        if rel and INITIAL is None:
-            INITIAL = slug + "/" + rel
+    global STATE_DIR
+    STATE_DIR = state_dir_for(opts.port)
+
+    roots, initial = collect_targets(opts.targets)
 
     if shutil.which("pandoc") is None:
         print("pandoc が見つからない (markdown の変換ができない)", file=sys.stderr)
 
-    ThreadingHTTPServer.allow_reuse_address = True
-    ThreadingHTTPServer.daemon_threads = True  # SSE 接続が残っていても終了できるように
+    # 窓口が他プロセスでも URL は同じなので、先に登録して URL を出す
+    slug = register(roots, initial)
     try:
-        httpd = ThreadingHTTPServer(("127.0.0.1", opts.port), Handler)
-    except OSError as e:
-        print("ポート %d を開けない: %s" % (opts.port, e), file=sys.stderr)
-        print("別の hiraku が動いているかもしれない (-p で変えられる)", file=sys.stderr)
-        return 1
+        httpd = try_bind(opts.port)
+        if httpd is None and not is_hiraku(opts.port):
+            print("ポート %d を hiraku 以外が使っている (-p で変えられる)" % opts.port,
+                  file=sys.stderr)
+            return 1
 
-    threading.Thread(target=watch, daemon=True).start()
+        url = "http://localhost:%d/%s/" % (opts.port, slug)
+        if initial:
+            url += "#" + quote(initial)
+        print("ローカルのブラウザで開く: " + url)
+        for rslug, root in roots.items():
+            print("  %s  →  %s" % (rslug, root))
+        print("Ctrl-C で終了する (終了したらブラウザからは見えなくなる)")
+        sys.stdout.flush()
 
-    url = "http://localhost:%d/" % opts.port
-    if INITIAL:
-        url += "#" + quote(INITIAL)
-    print("ローカルのブラウザで開く: " + url)
-    for slug, root in ROOTS.items():
-        print("  %s  →  %s" % (slug, root))
-    print("Ctrl-C で終了する (終了したらブラウザからは見えなくなる)")
-    sys.stdout.flush()
-
-    signal.signal(signal.SIGINT, signal.default_int_handler)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n終了した")
-    return 0
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+        try:
+            serve(opts.port, httpd)
+        except KeyboardInterrupt:
+            print("\n終了した")
+        return 0
+    finally:
+        unregister(slug)
 
 
 if __name__ == "__main__":

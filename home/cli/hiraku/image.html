@@ -1,5 +1,5 @@
 <!-- hiraku の画像ビューア (全プレビュー共通の静的ページ)。
-     ?src=/view/<スラグ>/<ファイル> で対象を受ける。
+     ?src=view/<対象>/<ファイル> (/<セッション>/ からの相対) で対象を受ける。
      ブラウザのネイティブ表示をやめたのは、ウィンドウ幅に合わせて拡大
      ・縮小されるだけで「等倍で細部を見る」「全体を俯瞰する」の
      切り替えができず、大きい画像も小さい画像も見づらかったため。
@@ -67,7 +67,7 @@ var sizeEl = document.getElementById("size");
 var hintEl = document.getElementById("hint");
 var errEl = document.getElementById("error");
 
-if (!src) { fail("?src=/view/<スラグ>/<ファイル> の指定がない"); throw new Error("no src"); }
+if (!src) { fail("?src=view/<対象>/<ファイル> の指定がない"); throw new Error("no src"); }
 var name = decodeURIComponent(src.split("/").pop());
 document.title = name;
 
@@ -79,7 +79,9 @@ function fail(msg) {
 
 // scale は画像の実ピクセル基準 (100% = 等倍)。x, y は表示上の左上の位置
 var view = { scale: 1, x: 0, y: 0 };
-var key = "hiraku.image:" + src;
+// ポートを複数のセッションで共有するので、パスだけだと別の対象の画像と
+// 位置を取り違える。セッション (location.pathname) も鍵に混ぜる
+var key = "hiraku.image:" + location.pathname + ":" + src;
 
 function natural() {
   // SVG などで固有サイズを取れないことがある。0 のままだと割り算が壊れるので
