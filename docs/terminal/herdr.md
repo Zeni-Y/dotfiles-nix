@@ -246,8 +246,36 @@ herdr pane current                               # 現在のペインの情報 (
 | `keys.prefix` | `"ctrl+q"` | 既定の `ctrl+b` (fish の backward-char) とも `ctrl+t` (fzf) とも衝突しないキー |
 | `theme.name` | `"catppuccin"` | WezTerm (Catppuccin Mocha) と揃える |
 | `session.resume_agents_on_restore` | `true` | サーバ再起動後にエージェントのセッションを再開 |
+| `ui.sidebar.agents.rows_by_agent.claude` | `[["state_icon","workspace","tab"], ["terminal_title_stripped"]]` | サイドバーの 2 行目に Claude の会話名を出す (下記) |
 
 ペイン移動や分割のキーは herdr 既定がすでに prefix-first の vi 風なので上書きしていません。
+
+### サイドバーのエージェント行
+
+既定の `ui.sidebar.agents.rows` は
+`[["state_icon", "workspace", "tab"], ["agent"]]` で、2 行目は常に `claude` です。
+同じリポジトリで複数の Claude Code を並行させると 1 行目の workspace
+(= ディレクトリ名) まで同じになり、サイドバーからは区別できません。
+
+Claude Code は会話の要約をターミナルタイトルとして送っているので、
+2 行目をそのタイトルに差し替えています。herdr 側の持ち物は
+`herdr agent list` の JSON で見えます。
+
+```console
+$ herdr agent list | jq -r '.result.agents[] | "\(.agent)\t\(.terminal_title_stripped)"'
+claude  twitter api environment variables
+claude  Understand meaning of -I flag in file listings
+```
+
+| トークン | 中身 |
+| --- | --- |
+| `terminal_title` | 状態記号つきのタイトル (`✳ ...`) |
+| `terminal_title_stripped` | 記号を除いたタイトル ← これを使っている |
+
+`rows` (全エージェント共通) ではなく `rows_by_agent.claude` にしているのは、
+ターミナルタイトルを送らないエージェントで 2 行目が空欄になるのを避けるためです。
+使えるトークンの全量は `herdr --default-config` の `[ui.sidebar.agents]` 節にあります
+(`$name` 形式でペインのメタデータも参照できる)。
 
 設定できる項目の全量は次で確認できます。
 
