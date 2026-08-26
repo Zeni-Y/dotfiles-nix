@@ -73,6 +73,7 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 | Claude Code の指示ファイルの階層と配り方 | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) |
 | `hms` などの短縮入力の展開先 | [docs/shell/fish-abbr.md](docs/shell/fish-abbr.md) (実行時は `abbr --show`) |
 | ターミナル (herdr) のキーバインド・設定反映 | [docs/terminal/herdr.md](docs/terminal/herdr.md) |
+| 日本語 LaTeX を latexmk でビルドしたい / `.sty` が足りない | [docs/cli/latexmk.md](docs/cli/latexmk.md) |
 | Neovim / LazyVim の責務分担 | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) |
 | Windows (WSL2) のセットアップ | [docs/setup/wsl2.md](docs/setup/wsl2.md) |
 | コンテナで `nix-daemon` が落ちている / UID 不一致 | [docker/debug/README.md](docker/debug/README.md#よくあるエラーと対処) |

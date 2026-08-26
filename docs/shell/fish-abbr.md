@@ -150,6 +150,16 @@ hunk 単位の add や rebase の並べ替えのような込み入った操作�
 `hdc` は設定を足したあとに不明キーが無いか確かめるためのもので、
 [herdr.md](../terminal/herdr.md) でも設定変更のたびに実行するよう書いています。
 
+### LaTeX — `home/cli/texlive.nix`
+
+| 短縮 | 展開 |
+| --- | --- |
+| `lmk` | `latexmk` |
+| `lmkc` | `latexmk -c` (中間ファイルだけ消す) |
+
+`~/.latexmkrc` で platex ルートを既定にしているので、`-pdfdvi` のような
+オプションは付けていません ([latexmk.md](../cli/latexmk.md))。
+
 ### dotfiles 管理 — `home/shell/fish.nix`
 
 | 短縮 | 展開 |
