@@ -24,6 +24,7 @@
 | [claude-code/](./claude-code/) | [claude-code.md](./claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と、Nix での配り方 |
 | | [ref-tips.md](./claude-code/ref-tips.md) | CLAUDE.md / agents / skills / hooks の導入候補 |
 | [cli/](./cli/) | [hiraku.md](./cli/hiraku.md) | リモートの markdown / HTML / 画像 / PDF / 音声をローカルのブラウザで見る `hiraku` コマンドの使い方と設計 |
+| | [latexmk.md](./cli/latexmk.md) | 日本語 LaTeX (platex + pbibtex + dvipdfmx) を latexmk で回す構成・`~/.latexmkrc`・パッケージの足し方 |
 | | [ref-tips-tools.md](./cli/ref-tips-tools.md) | delta, bit, comma, lazygit, dust などの導入候補 |
 | | [ref-tips-scripts.md](./cli/ref-tips-scripts.md) | `bin/` 以下の便利スクリプト群の導入候補 |
 | [secrets/](./secrets/) | [1password-direnv.md](./secrets/1password-direnv.md) | API キー / トークン / .env を 1Password + direnv で管理する構成・`use op` の使い方・コミットしてよい範囲 |
@@ -50,6 +51,8 @@
 | セッションを残したままターミナルを閉じたい | [terminal/herdr.md 3 章](./terminal/herdr.md#3-起動デタッチ終了-ランタイムのライフサイクル) |
 | 複数の coding agent を並列に走らせたい | [git/git-worktree.md 8 章](./git/git-worktree.md#8-並列エージェント運用のレシピ) |
 | リモートの markdown / HTML / 画像 / PDF / 音声を手元のブラウザで見たい | [cli/hiraku.md](./cli/hiraku.md) |
+| 日本語の LaTeX を latexmk でビルドしたい | [cli/latexmk.md](./cli/latexmk.md) |
+| `.sty` が見つからない / 和文フォントが埋め込まれない | [cli/latexmk.md 6 章](./cli/latexmk.md#6-ハマりどころ) |
 | worktree をどこに置けばいいか (ghq との関係) | [git/git-worktree.md 5 章](./git/git-worktree.md#5-置き場所の設計--集約派と隔離派) |
 | clone と worktree を `~/ghq` に集約したい (gwq) | [git/git-worktree.md 7 章](./git/git-worktree.md#7-集約派で揃える--gwq-と-herdr-を合わせる) |
 | worktree を消したのにブランチが残る / 消せない | [git/git-worktree.md 4 章](./git/git-worktree.md#4-ライフサイクル-素の-git) |

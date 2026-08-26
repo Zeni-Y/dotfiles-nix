@@ -11,6 +11,7 @@
     ./gwq.nix
     ./hiraku.nix
     ./onepassword.nix
+    ./texlive.nix
     ./zoxide.nix
     ./eza.nix
   ];
