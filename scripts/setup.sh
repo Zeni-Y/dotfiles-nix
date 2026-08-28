@@ -8,15 +8,16 @@
 #   一切サポートしない。sudo が無い環境ではシステム管理者に Nix の
 #   インストールを依頼すること。
 #
-#   - systemd が動いている環境ではそのままインストールする
-#   - systemd が無い環境 (Docker コンテナなど) では
+#   - systemd が動いている Linux ではそのままインストールする
+#   - systemd が無い Linux (Docker コンテナなど) では
 #     `nix-installer install linux --init none` で daemon の自動起動を
 #     諦めた状態でインストールし、~/.bashrc に daemon 起動スニペットを入れる
+#   - macOS では installer の macOS プランで入れる (daemon は launchd 管理)
 #
 # 使い方:
-#   ./scripts/setup.sh              # systemd の有無を自動判定
+#   ./scripts/setup.sh              # OS と systemd の有無を自動判定
 #   ./scripts/setup.sh --init-none  # 強制的に `linux --init none` プラン
-#                                   #   (systemd 判定を上書きしたいとき)
+#                                   #   (Linux 専用。systemd 判定を上書きしたいとき)
 # ─────────────────────────────────────────────────────────────
 set -eu
 
@@ -111,7 +112,7 @@ EOM
 
 # ─── Nix をインストール (Determinate Systems installer) ───────
 # 引数:
-#   $1 = "with-systemd" or "no-systemd"
+#   $1 = "with-systemd" / "no-systemd" / "darwin"
 install_nix() {
     init_mode="${1:-with-systemd}"
 
@@ -127,12 +128,27 @@ install_nix() {
             https://install.determinate.systems/nix \
             | sh -s -- install linux --init none --no-confirm
     else
+        # macOS もこちら。installer がプラットフォームを自動判定し、
+        # nix-daemon は launchd (macOS) / systemd (Linux) に登録される。
         log "Determinate Systems nix-installer で Nix をインストールします"
         curl --proto '=https' --tlsv1.2 -sSf -L \
             https://install.determinate.systems/nix \
             | sh -s -- install --no-confirm
     fi
     ok "Nix のインストールが完了しました"
+
+    if [ "$init_mode" = "darwin" ]; then
+        # macOS では installer が /etc/zshrc・/etc/bashrc を書き換えるので
+        # ~/.bashrc への追記は不要。新しいターミナルを開けば nix が使える。
+        cat <<'EOM'
+
+新しいターミナルを開けばそのまま nix コマンドが使えます。
+その後、Home Manager を適用できます (初回は必ず -b backup を付ける):
+
+  nix run home-manager/master -- switch -b backup --flake .#zenimoto@macbook
+EOM
+        return 0
+    fi
 
     # ~/.bashrc に source 行を (no-systemd ならそれに加えて daemon 自動起動も) 追記
     if [ "$init_mode" = "no-systemd" ]; then
@@ -184,7 +200,14 @@ if ! have_sudo; then
     exit 1
 fi
 
-if [ "$FORCE_INIT_NONE" = "1" ]; then
+if [ "$(uname -s)" = "Darwin" ]; then
+    if [ "$FORCE_INIT_NONE" = "1" ]; then
+        err "--init-none は Linux 専用のオプションです (macOS では launchd が daemon を管理します)"
+        exit 2
+    fi
+    log "macOS を検出しました → installer の macOS プランでインストールします"
+    install_nix darwin
+elif [ "$FORCE_INIT_NONE" = "1" ]; then
     log "--init-none が指定されました → \`linux --init none\` プランでインストールします"
     install_nix no-systemd
 elif have_systemd; then

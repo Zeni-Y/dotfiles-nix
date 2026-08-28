@@ -4,13 +4,13 @@
 # プラグインは programs.fish.plugins で管理する。
 # これにより fisher は不要で、バージョンは flake.lock で固定される。
 # ─────────────────────────────────────────────────────────────
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   # flake の場所と homeConfigurations のキー。
-  # 後者は flake.nix の `homeConfigurations."${userInfo.username}@ubuntu"`
-  # と一致させる必要がある。username は userInfo から流れてくるので
-  # config 経由で拾い、ホスト側の "ubuntu" だけ直書きする。
+  # 後者は flake.nix の `homeConfigurations."<username>@<flakeHost>"`
+  # と一致させる必要がある。username は userInfo から、ホスト部は
+  # 下の dotfiles.flakeHost (hosts/*.nix が設定) から config 経由で拾う。
   #
   # パスは ghq の標準レイアウト (<root>/<host>/<owner>/<repo>)。
   # worktree を同じ root に集約するため (docs/git/git-worktree.md 7 章)、
@@ -19,10 +19,23 @@ let
   # 導けない。flake.nix の userInfo.githubUser が git config (ghq.user) に
   # 流れてくるので、そこから拾って直書きをなくしている。
   flakeDir = "${config.home.homeDirectory}/ghq/github.com/${config.programs.git.settings.ghq.user}/dotfiles-nix";
-  flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
+  flakeRef = "${flakeDir}#${config.home.username}@${config.dotfiles.flakeHost}";
 in
 {
-  programs.fish = {
+  # hms などの短縮入力が指す homeConfigurations のキーのホスト部。
+  # ここ (消費側) で宣言し、値は hosts/<name>.nix が自分の名前を入れる。
+  # default を持たせないのは、ホストを増やしたときに設定し忘れて
+  # 別ホストの設定を switch してしまう事故を評価エラーで止めるため。
+  options.dotfiles.flakeHost = lib.mkOption {
+    type = lib.types.str;
+    example = "ubuntu";
+    description = ''
+      flake.nix の homeConfigurations."<username>@<flakeHost>" のホスト部。
+      hosts/<name>.nix から自分のキーと一致する値を渡す。
+    '';
+  };
+
+  config.programs.fish = {
     enable = true;
 
     # pure はプロンプトテーマを提供するため starship とは併用しない。
@@ -129,7 +142,7 @@ in
       # cd してから行う運用なので、worktree など「いま居るチェックアウト」を
       # そのまま適用できる方が意図と一致する。username は userInfo から
       # config 経由で流れてくるので直書きしない。
-      hms = "home-manager switch --flake .#${config.home.username}@ubuntu";
+      hms = "home-manager switch --flake .#${config.home.username}@${config.dotfiles.flakeHost}";
       hmn = "home-manager news --flake ${flakeRef}";
       hmg = "home-manager generations --flake ${flakeRef}";
 

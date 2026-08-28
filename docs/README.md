@@ -12,6 +12,7 @@
 | | [ref-tips.md](./nix/ref-tips.md) | overlays / git-hooks.nix / agent-skills-nix の導入候補 |
 | [setup/](./setup/) | [wsl2.md](./setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・1Password ssh-agent 連携・WSL 固有のハマりどころ |
 | | [ubuntu.md](./setup/ubuntu.md) | リモート接続先の素の Ubuntu でのセットアップ手順・SSH agent forwarding の扱い |
+| | [macos.md](./setup/macos.md) | macOS (MacBook) でのセットアップ手順・fish のログインシェル化・macOS 固有のハマりどころ |
 | [shell/](./shell/) | [fish-abbr.md](./shell/fish-abbr.md) | fish の補完がどこから来ているか・短縮入力 (abbreviation) の一覧と足し方 |
 | | [fish-nix-path.md](./shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組みと、このリポジトリでの扱い |
 | | [ref-tips.md](./shell/ref-tips.md) | fish の abbr / functions / key bindings の導入候補 |

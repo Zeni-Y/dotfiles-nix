@@ -22,8 +22,12 @@
 
     ./git.nix
     ./herdr.nix
-    ./wsl-ssh-agent.nix
     ./wezterm.nix
+
+    # ./wsl-ssh-agent.nix はここではなく hosts/ubuntu.nix 側で import する。
+    # systemd.user.* を定義するモジュールで、macOS の home-manager には
+    # そのオプション自体が存在しないため (mkIf で無効化しても定義先の
+    # オプションが無いと評価が通らない)、Linux ホストだけに限定する。
   ];
 
   programs.home-manager.enable = true;

@@ -24,6 +24,12 @@
 let
   cfg = config.programs.onepassword;
 
+  # wsl.windowsUsername オプションを持つ home/wsl-ssh-agent.nix は
+  # Linux ホスト (hosts/ubuntu.nix) だけが import する。macbook のように
+  # import しないホストではオプション自体が存在しないので、`or null` で
+  # 欠損を吸収する (useWindowsCli は WSL 専用なので実害はない)。
+  windowsUsername = config.wsl.windowsUsername or null;
+
   # WSL から Windows 側 op.exe へ丸投げするラッパ。
   # op.exe は Windows プロセスなので `op run -- <Linux コマンド>` は使えない
   # (子プロセスが Windows 側で起動する)。値を stdout に出すだけの
@@ -33,8 +39,8 @@ let
     # 引き継がれている場合)。無ければ既定の導入先を順に見る。
     opexe="$(command -v op.exe 2>/dev/null || true)"
     candidates=(
-    ${lib.optionalString (config.wsl.windowsUsername != null) ''
-      "/mnt/c/Users/${config.wsl.windowsUsername}/AppData/Local/Microsoft/WinGet/Links/op.exe"
+    ${lib.optionalString (windowsUsername != null) ''
+      "/mnt/c/Users/${windowsUsername}/AppData/Local/Microsoft/WinGet/Links/op.exe"
     ''}  "/mnt/c/Program Files/1Password CLI/op.exe"
     )
     if [ -z "$opexe" ]; then

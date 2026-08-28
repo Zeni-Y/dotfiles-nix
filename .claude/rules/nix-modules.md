@@ -36,6 +36,10 @@ Nix 全般の作法 (適用しない・`git add`・`flake.lock` を触らない)
 ```bash
 nix flake check --no-build                                          # 評価チェック (abbr: nfc)
 nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage  # 適用せずビルド
+
+# macbook (aarch64-darwin) は Linux 上ではビルドできないが、評価だけは通せる。
+# パッケージが darwin 非対応 / broken ならここでエラーになる。
+nix eval --raw .#homeConfigurations."zenimoto@macbook".activationPackage.drvPath
 ```
 
 `home-manager switch` は打たない (CLAUDE.md 参照)。適用が要る変更は、

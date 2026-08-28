@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-`dotfiles-nix` — **Nix Flakes + Home Manager** で Linux (Ubuntu / WSL2 / Docker) の
-ホームディレクトリを宣言的に管理する dotfiles。CI もテストも無い。
+`dotfiles-nix` — **Nix Flakes + Home Manager** で Linux (Ubuntu / WSL2 / Docker) と
+macOS (MacBook) のホームディレクトリを宣言的に管理する dotfiles。CI もテストも無い。
 
 worktree・ブランチ・コミット・PR の作法は全プロジェクト共通なので `~/.claude/CLAUDE.md` と
 `~/.claude/rules/` にある (**このリポジトリの `home/claude-code/` がその配布元**)。
@@ -14,6 +14,8 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
   ```bash
   nix flake check --no-build
   nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage
+  # macbook (aarch64-darwin) は Linux 上ではビルドできないので評価まで
+  nix eval --raw .#homeConfigurations."zenimoto@macbook".activationPackage.drvPath
   ```
 - **新しい `.nix` やそこから参照する Markdown を足したら `git add`。**
   flake は git 管理下のファイルしか見ない (コミットまでは不要)。
@@ -21,11 +23,17 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 
 ## スコープ (勝手に広げない)
 
-- 対象は **Linux のみ**。macOS (nix-darwin / Homebrew) 向けの分岐を足さない。
+- 対象は **Linux と macOS (MacBook)**。macOS も standalone Home Manager だけで扱い、
+  **nix-darwin / Homebrew 向けの分岐は足さない**。
 - **`sudo` が使える前提**。`/nix` に入る通常の multi-user Nix だけ。`nix-portable` は使わない。
-- **システム領域は管理しない。** NixOS ではないので `~/` 配下 (Home Manager) だけ。
-- 一度設計から外したもの (macOS / nix-portable / chezmoi / tmux / zellij / Zed) を
+  macOS も同じ (sudo が使える MacBook のみ対象)。
+- **システム領域は管理しない。** `~/` 配下 (Home Manager) だけ。macOS でも Dock や
+  `defaults`、GUI アプリは対象外。
+- 一度設計から外したもの (nix-darwin / nix-portable / chezmoi / tmux / zellij / Zed) を
   再導入する提案はしない。
+- Linux 専用モジュール (`home/wsl-ssh-agent.nix` など systemd を使うもの) は
+  `home/default.nix` ではなく `hosts/<linux ホスト>.nix` 側で import する
+  (macOS の home-manager には `systemd.user.*` オプションが存在しないため)。
 
 ## どこに何があるか
 
@@ -76,6 +84,7 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 | 日本語 LaTeX を latexmk でビルドしたい / `.sty` が足りない | [docs/cli/latexmk.md](docs/cli/latexmk.md) |
 | Neovim / LazyVim の責務分担 | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) |
 | Windows (WSL2) のセットアップ | [docs/setup/wsl2.md](docs/setup/wsl2.md) |
+| macOS (MacBook) のセットアップ | [docs/setup/macos.md](docs/setup/macos.md) |
 | コンテナで `nix-daemon` が落ちている / UID 不一致 | [docker/debug/README.md](docker/debug/README.md#よくあるエラーと対処) |
 | その他の既知の罠 | [README.md「既知のハマりどころ」](README.md#既知のハマりどころ) |
 

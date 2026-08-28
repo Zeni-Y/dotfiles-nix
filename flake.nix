@@ -1,5 +1,5 @@
 {
-  description = "Zeni-Y dotfiles managed by Nix (Linux / Ubuntu)";
+  description = "Zeni-Y dotfiles managed by Nix (Linux / macOS)";
 
   # ─────────────────────────────────────────────────────────────
   # 入力 (依存パッケージのソース)
@@ -24,8 +24,9 @@
   # 出力 (このリポジトリが提供する設定)
   #   - homeConfigurations.* : standalone Home Manager の適用対象
   #
-  # 対象は Linux (Ubuntu / Docker コンテナ内含む) のみ。
-  # macOS (nix-darwin) と nix-portable は対象外。
+  # 対象は Linux (Ubuntu / Docker コンテナ内含む) と macOS (MacBook)。
+  # どちらも sudo が使える前提の multi-user Nix + standalone Home Manager。
+  # nix-darwin と nix-portable は対象外。
   # ─────────────────────────────────────────────────────────────
   outputs = inputs @ { self, nixpkgs, home-manager, nix-claude-code, ... }:
     let
@@ -48,6 +49,13 @@
       # 適用コマンド:
       #   nix run home-manager/master -- switch --flake .#zenimoto@ubuntu
       homeConfigurations."${userInfo.username}@ubuntu" = import ./hosts/ubuntu.nix {
+        inherit inputs userInfo;
+      };
+
+      # ─── MacBook / macOS (standalone home-manager) ───
+      # 適用コマンド:
+      #   nix run home-manager/master -- switch --flake .#zenimoto@macbook
+      homeConfigurations."${userInfo.username}@macbook" = import ./hosts/macbook.nix {
         inherit inputs userInfo;
       };
     };

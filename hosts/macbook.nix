@@ -1,13 +1,20 @@
 # ─────────────────────────────────────────────────────────────
-# Ubuntu 用ホスト設定 (standalone home-manager)
+# MacBook (macOS) 用ホスト設定 (standalone home-manager)
 #
-# Ubuntu は NixOS ではないため、システム全体を Nix で管理せず
-# ホームディレクトリ配下のみ home-manager で管理する構成にする。
+# macOS でも nix-darwin は使わず、Ubuntu と同じくホームディレクトリ
+# 配下のみを home-manager で管理する。システム領域 (Dock / Finder の
+# defaults、Homebrew で入れる GUI アプリなど) は対象外。
+# Nix は sudo を使う通常の multi-user 構成 (/nix) を前提にする。
+#
+# Linux 専用モジュール (../home/wsl-ssh-agent.nix) はここでは import
+# しない。macOS の home-manager には systemd.user.* オプション自体が
+# 無いので、import すると評価が通らない。
 # ─────────────────────────────────────────────────────────────
 { inputs, userInfo }:
 
 let
-  system = "x86_64-linux";
+  # Apple Silicon 前提。Intel Mac に入れるなら "x86_64-darwin" に変える。
+  system = "aarch64-darwin";
   pkgs = import inputs.nixpkgs {
     inherit system;
     config.allowUnfree = true;
@@ -20,14 +27,10 @@ inputs.home-manager.lib.homeManagerConfiguration {
   modules = [
     ../home
 
-    # WSL2 専用の ssh-agent 中継。systemd.user.* を使うので Linux ホスト
-    # だけが import する (home/default.nix 側のコメント参照)。
-    # WSL 以外の Linux でも windowsUsername が null なら丸ごと無効になる。
-    ../home/wsl-ssh-agent.nix
-
     {
       home.username = userInfo.username;
-      home.homeDirectory = "/home/${userInfo.username}";
+      # macOS のホームは /home ではなく /Users
+      home.homeDirectory = "/Users/${userInfo.username}";
       home.stateVersion = "25.05";
 
       programs.git.settings.user.name = userInfo.gitName;
@@ -39,10 +42,7 @@ inputs.home-manager.lib.homeManagerConfiguration {
 
       # fish の hms などが適用先として参照する homeConfigurations の
       # キーのホスト部 (home/shell/fish.nix)
-      dotfiles.flakeHost = "ubuntu";
-
-      # Windows 側 ssh-agent への中継 (home/wsl-ssh-agent.nix)
-      wsl.windowsUsername = userInfo.windowsUsername or null;
+      dotfiles.flakeHost = "macbook";
     }
   ];
 }

@@ -1,20 +1,22 @@
 # dotfiles-nix
 
 [Zeni-Y/dotfiles](https://github.com/Zeni-Y/dotfiles) (chezmoi 管理) を参考に、
-**Nix Flakes + Home Manager** で Linux (Ubuntu / Docker コンテナ) 環境を
-宣言的に管理するための dotfiles です。
+**Nix Flakes + Home Manager** で Linux (Ubuntu / Docker コンテナ) と
+macOS (MacBook) の環境を宣言的に管理するための dotfiles です。
 
 CI やテストは含めず、設定が増えても見通しを保てるように
 トピックごとにモジュールを分割しています。
 
 ## 前提とスコープ
 
-- **対象 OS は Linux のみ**。Docker コンテナ内での利用も想定します。
-  macOS (nix-darwin / Homebrew) は対象外です。
+- **対象 OS は Linux と macOS (MacBook)**。Docker コンテナ内での利用も想定します。
   Windows では **WSL2 の Ubuntu** を Linux 実機と同じ扱いで使えます
   (手順は [docs/setup/wsl2.md](docs/setup/wsl2.md))。
+- macOS も Linux と同じく **standalone Home Manager で `~/` 配下だけ**を管理します。
+  nix-darwin や Homebrew の管理 (システム領域・GUI アプリ) はしません
+  (手順は [docs/setup/macos.md](docs/setup/macos.md))。
 - **`sudo` が使えることが前提**。Nix は `/nix` にインストールする
-  通常の (multi-user) 構成のみをサポートします。
+  通常の (multi-user) 構成のみをサポートします。macOS も同様です。
 - **`nix-portable` は使いません**。`sudo` が使えない環境は考慮しないので、
   そのような環境ではシステム管理者に Nix のインストールを依頼してください。
 
@@ -72,7 +74,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 ├── flake.lock               # 依存バージョンの固定 (初回 `nix flake update` で生成)
 │
 ├── hosts/                   # ホスト (= 適用対象) 単位の入口
-│   └── ubuntu.nix           #   standalone Home Manager
+│   ├── ubuntu.nix           #   Linux (standalone Home Manager)
+│   └── macbook.nix          #   macOS (standalone Home Manager / nix-darwin 不使用)
 │
 ├── home/                    # ユーザー領域 (~/) の設定
 │   ├── default.nix          #   配下のモジュールを集約
@@ -116,10 +119,13 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 設計の指針:
 
-- **ユーザー領域の設定はすべて `home/` に置く**。Ubuntu でも Docker コンテナでも同じものが入る。
+- **ユーザー領域の設定はすべて `home/` に置く**。Ubuntu でも Docker コンテナでも
+  MacBook でも同じものが入る。Linux 専用モジュール (`home/wsl-ssh-agent.nix` など
+  systemd を使うもの) だけは `home/default.nix` ではなく Linux ホストの
+  `hosts/<name>.nix` 側で import する。
 - **ホスト構成は `hosts/` に集約する**。新しいマシンを足すときは
   `flake.nix` の outputs と `hosts/<name>.nix` を 1 つ書くだけで済む。
-- **システム領域は Nix で管理しない**。対象は NixOS ではない Linux なので、
+- **システム領域は Nix で管理しない**。NixOS でも nix-darwin でもないので、
   `~/` 配下だけを Home Manager で宣言的に管理する。
 
 ---
@@ -140,8 +146,9 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 | 環境 | 動作 |
 | --- | --- |
-| `sudo` + `systemd` が使える | そのままインストール。`nix-daemon` は systemd が面倒を見る |
-| `sudo` は使えるが `systemd` が無い (Docker コンテナなど) | `linux --init none` プランでインストール。`nix-daemon` の自動起動だけ諦め、代わりに `~/.bashrc` へ起動スニペットを追記する |
+| macOS | installer の macOS プランでインストール。`nix-daemon` は launchd が面倒を見る |
+| `sudo` + `systemd` が使える Linux | そのままインストール。`nix-daemon` は systemd が面倒を見る |
+| `sudo` は使えるが `systemd` が無い Linux (Docker コンテナなど) | `linux --init none` プランでインストール。`nix-daemon` の自動起動だけ諦め、代わりに `~/.bashrc` へ起動スニペットを追記する |
 | `sudo` が使えない | **サポート外**。エラーで停止する |
 
 WSL2 は既定で systemd が無効なので、そのまま実行すると 2 行目の経路になる。
@@ -187,6 +194,7 @@ Docker コンテナ内での利用は今後も想定するが、その場合も
 | --- | --- |
 | **Windows (WSL2)** | [docs/setup/wsl2.md](docs/setup/wsl2.md)。WSL2 の用意 → systemd 有効化 → `setup.sh` → 初回 switch → Windows 側の仕上げ (フォント / ターミナル / [1Password ssh-agent 連携](docs/setup/wsl2.md#74-ssh-agent-を-windows-側に一本化する-任意)) まで全行程がある |
 | **リモート接続先の Ubuntu** | [docs/setup/ubuntu.md](docs/setup/ubuntu.md)。`setup.sh` → 初回 switch。秘密鍵はリモートに置かず、手元の agent を forwarding で持ち込む |
+| **macOS (MacBook)** | [docs/setup/macos.md](docs/setup/macos.md)。`setup.sh` → 初回 switch → fish のログインシェル化。nix-darwin / Homebrew は使わない |
 | **Docker コンテナ** | [docker/](docker/) の各 README。検証用は `debug`、常駐開発は `working` |
 
 ```bash
@@ -243,7 +251,23 @@ Existing file '/home/<you>/.bashrc' would be clobbered
   普通に上書きされる。
 - 退避された `.backup` の中身が要らないと確認できたら、後から消して構わない。
 
-`zenimoto@ubuntu` という名前は `flake.nix` の `homeConfigurations.<name>` に対応する。
+### macOS (standalone home-manager)
+
+Ubuntu と同じ流れで、flake の指定先だけ `@macbook` になる
+(前段の手順は [docs/setup/macos.md](docs/setup/macos.md))。
+
+```bash
+# 初回。既存の dotfiles があるので -b backup は Ubuntu と同じく必須
+nix run home-manager/master -- switch -b backup --flake .#zenimoto@macbook
+
+# 以降
+home-manager switch --flake .#zenimoto@macbook
+```
+
+`-b backup` の挙動も上記 Ubuntu の説明と同じ。
+
+`zenimoto@ubuntu` / `zenimoto@macbook` という名前は `flake.nix` の
+`homeConfigurations.<name>` に対応する。
 マシンを増やすときはこの名前を分け、`hosts/<name>.nix` を追加する。
 
 ---
@@ -251,7 +275,7 @@ Existing file '/home/<you>/.bashrc' would be clobbered
 ## 日々の運用
 
 ```bash
-# 設定を編集したあとの反映
+# 設定を編集したあとの反映 (macbook では .#zenimoto@macbook)
 home-manager switch --flake .#zenimoto@ubuntu
 
 # 依存パッケージのアップデート (flake.lock を更新)
