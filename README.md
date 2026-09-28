@@ -27,6 +27,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 > | [docs/terminal/herdr.md](docs/terminal/herdr.md) | herdr の使い方 (タブ / ペイン / workspace)・キーバインド・設定の反映フロー |
 > | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
 > | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と Nix での配り方 |
+> | [docs/codex/codex.md](docs/codex/codex.md) | Codex CLI (OpenAI) の導入・認証・AGENTS.md を Claude Code と共通化する配り方 |
 > | [docs/shell/fish-nix-path.md](docs/shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組み |
 > | [docs/secrets/1password-direnv.md](docs/secrets/1password-direnv.md) | API キー / トークン / .env を 1Password + direnv で管理する |
 
@@ -56,7 +57,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / op (1Password) / lazygit / ripgrep / fd / jq / yq / yazi |
 | リポジトリ / worktree | ghq + gwq — clone も worktree も `~/ghq` に集約。`dev` で fzf 移動、`gwq add` / `gwq cd` は現在のシェルごと移動する ([docs/git/git-worktree.md](docs/git/git-worktree.md)) |
 | 秘密情報 | 1Password CLI (`op`) + direnv の `use op` — `.env` を平文で置かず、リポジトリには `op://…` の参照だけを置く ([docs/secrets/1password-direnv.md](docs/secrets/1password-direnv.md)) |
-| コーディングエージェント | Claude Code 本体と、全プロジェクト共通の指示 (`~/.claude/CLAUDE.md` / `~/.claude/rules/`) を宣言的に配布 ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md)) |
+| コーディングエージェント | Claude Code と Codex CLI (OpenAI)。全プロジェクト共通の指示を宣言的に配布し、**同じ内容を両方に配る** (`~/.claude/CLAUDE.md` + `~/.claude/rules/` / `~/.codex/AGENTS.md`) ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md), [docs/codex/codex.md](docs/codex/codex.md)) |
 
 日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は
 [docs/terminal/herdr.md](docs/terminal/herdr.md) と [docs/editor/lazyvim.md](docs/editor/lazyvim.md) にまとめている。
@@ -92,6 +93,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │   │   ├── default.nix
 │   │   ├── CLAUDE.md        #     → ~/.claude/CLAUDE.md
 │   │   └── rules/           #     → ~/.claude/rules/ (トピック別・パススコープ可)
+│   ├── codex.nix            #   Codex CLI (OpenAI)。上の指示を連結して
+│   │                        #     → ~/.codex/AGENTS.md に配る
 │   └── cli/                 #   シェル統合が必要な CLI ツール
 │       ├── default.nix
 │       ├── bat.nix
@@ -367,6 +370,8 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   switch すると `~/.claude/CLAUDE.md` と `~/.claude/rules/` に配られる。
   リポジトリ固有の指示は各リポジトリの `CLAUDE.md` / `.claude/rules/` 側に置く。
   詳細は [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md)。
+  同じ内容が `~/.codex/AGENTS.md` として Codex CLI にも配られる
+  (連結しているのは `home/codex.nix`。詳細は [docs/codex/codex.md](docs/codex/codex.md))。
 - **マシンを増やしたい** → `hosts/<name>.nix` を作り、`flake.nix` の outputs に登録。
 
 ---
@@ -413,6 +418,9 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   `home/claude-code/` 側を編集して `git add` → `home-manager switch`。
   逆に `~/.claude/settings.json` と auto memory は Claude Code 自身が書くファイルなので
   **意図的に Nix 管理外**にしてある ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md))。
+- **`codex update` は使わない**。実体は Nix store 上の読み取り専用バイナリで自己更新できない。
+  バージョンは nixpkgs 側で固定されている。`nix flake update nixpkgs` →
+  `home-manager switch` で上げる ([docs/codex/codex.md](docs/codex/codex.md))。
 - **`herdr update` は使わない**。herdr の実体は Nix store 上の読み取り専用バイナリなので
   自己更新できない。バージョンは flake.lock で固定されているので、
   `nix flake update` → `home-manager switch` で上げる。

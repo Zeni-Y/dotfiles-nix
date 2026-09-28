@@ -37,6 +37,7 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 | `home/cli/<name>.nix` | シェル統合・設定・関数を持つツール |
 | `home/shell/` `home/editors/` | fish / bash、Neovim |
 | `home/claude-code/` | **`~/.claude/CLAUDE.md` と `~/.claude/rules/` の配布元** |
+| `home/codex.nix` | Codex CLI (OpenAI)。上の指示を連結して `~/.codex/AGENTS.md` に配る |
 | `docker/` | `debug` (検証) / `working` (常駐開発) / `working_nixos` |
 | `docs/` | 補足資料。足したら README と `docs/README.md` の索引にも行を足す |
 | `plans/` | 実装前に書いた計画。作業後も消さない |
@@ -71,6 +72,7 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 | GitHub への ssh 一本化・1Password の鍵の使い回し | [docs/git/github-ssh.md](docs/git/github-ssh.md) |
 | API キー / トークン / `.env` の扱い (1Password + direnv) | [docs/secrets/1password-direnv.md](docs/secrets/1password-direnv.md) |
 | Claude Code の指示ファイルの階層と配り方 | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) |
+| Codex CLI の認証 / Claude と同じルールを読ませる仕組み | [docs/codex/codex.md](docs/codex/codex.md) |
 | `hms` などの短縮入力の展開先 | [docs/shell/fish-abbr.md](docs/shell/fish-abbr.md) (実行時は `abbr --show`) |
 | ターミナル (herdr) のキーバインド・設定反映 | [docs/terminal/herdr.md](docs/terminal/herdr.md) |
 | 日本語 LaTeX を latexmk でビルドしたい / `.sty` が足りない | [docs/cli/latexmk.md](docs/cli/latexmk.md) |

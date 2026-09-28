@@ -23,6 +23,7 @@
 | [terminal/](./terminal/) | [herdr.md](./terminal/herdr.md) | [herdr](https://herdr.dev/) (ターミナルマルチプレクサ) の使い方・キーバインド・設定の反映フロー |
 | [claude-code/](./claude-code/) | [claude-code.md](./claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と、Nix での配り方 |
 | | [ref-tips.md](./claude-code/ref-tips.md) | CLAUDE.md / agents / skills / hooks の導入候補 |
+| [codex/](./codex/) | [codex.md](./codex/codex.md) | Codex CLI (OpenAI) の導入・認証・AGENTS.md を Claude Code と共通化する配り方 |
 | [cli/](./cli/) | [hiraku.md](./cli/hiraku.md) | リモートの markdown / HTML / 画像 / PDF / 音声をローカルのブラウザで見る `hiraku` コマンドの使い方と設計 |
 | | [latexmk.md](./cli/latexmk.md) | 日本語 LaTeX (platex + pbibtex + dvipdfmx) を latexmk で回す構成・`~/.latexmkrc`・パッケージの足し方 |
 | | [ref-tips-tools.md](./cli/ref-tips-tools.md) | delta, bit, comma, lazygit, dust などの導入候補 |
@@ -60,6 +61,8 @@
 | Claude Code に毎回同じ指示を出さずに済ませたい | [claude-code/claude-code.md 2 章](./claude-code/claude-code.md#2-指示ファイルの階層) |
 | 共通ルールを足したい / どこに書くか迷う | [claude-code/claude-code.md 4 章](./claude-code/claude-code.md#4-このリポジトリでの配り方) / [5 章](./claude-code/claude-code.md#5-ルールを足す直す手順) |
 | `~/.claude/CLAUDE.md` が編集できない | [claude-code/claude-code.md 8 章](./claude-code/claude-code.md#8-ハマりどころ) |
+| Codex CLI (OpenAI) を使いたい / 認証したい | [codex/codex.md 2 章](./codex/codex.md#2-認証) |
+| Claude Code と Codex に同じルールを読ませたい | [codex/codex.md 4 章](./codex/codex.md#4-このリポジトリでの配り方) |
 | `gst` などの短縮入力が何に展開されるのか | [shell/fish-abbr.md 3 章](./shell/fish-abbr.md#3-定義済み-abbreviation-一覧) (実行時は `abbr --show`) |
 | コマンドのオプション候補がどこから出ているのか | [shell/fish-abbr.md 1 章](./shell/fish-abbr.md#1-補完はほぼ何もしなくても効く) |
 | 接続直後の 1 枚目のシェルだけ補完が効かない | [shell/fish-abbr.md 1 章](./shell/fish-abbr.md#接続直後の-1-枚目のシェルで補完が効かなかった話) |
