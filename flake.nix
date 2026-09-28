@@ -33,7 +33,7 @@
       userInfo = {
         username = "zenimoto";
         gitName = "zenimoto";
-        gitEmail = "you@example.com";  # ← 実際のメールアドレスに変更
+        gitEmail = "zeki110922@gmail.com";
         # GitHub の owner 名。username と綴りが違うことがあるので別項目にする。
         # git config の ghq.user (`ghq get` の owner 補完) に流れ、
         # home/shell/fish.nix の flakeDir もそこから導出される。
