@@ -57,7 +57,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 | CLI ツール | bat / eza / fzf / zoxide / direnv (nix-direnv 連携) / gh / op (1Password) / lazygit / ripgrep / fd / jq / yq / yazi |
 | リポジトリ / worktree | ghq + gwq — clone も worktree も `~/ghq` に集約。`dev` で fzf 移動、`gwq add` / `gwq cd` は現在のシェルごと移動する ([docs/git/git-worktree.md](docs/git/git-worktree.md)) |
 | 秘密情報 | 1Password CLI (`op`) + direnv の `use op` — `.env` を平文で置かず、リポジトリには `op://…` の参照だけを置く ([docs/secrets/1password-direnv.md](docs/secrets/1password-direnv.md)) |
-| コーディングエージェント | Claude Code と Codex CLI (OpenAI)。全プロジェクト共通の指示を宣言的に配布し、**同じ内容を両方に配る** (`~/.claude/CLAUDE.md` + `~/.claude/rules/` / `~/.codex/AGENTS.md`) ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md), [docs/codex/codex.md](docs/codex/codex.md)) |
+| コーディングエージェント | Claude Code と Codex CLI (OpenAI)、Antigravity CLI (Google, `agy`)。Claude Code と Codex には全プロジェクト共通の指示を宣言的に配布し、**同じ内容を両方に配る** (`~/.claude/CLAUDE.md` + `~/.claude/rules/` / `~/.codex/AGENTS.md`) ([docs/claude-code/claude-code.md](docs/claude-code/claude-code.md), [docs/codex/codex.md](docs/codex/codex.md)) |
 
 日々の操作方法 (herdr のタブ・ペイン作成、LazyVim のキー操作など) は
 [docs/terminal/herdr.md](docs/terminal/herdr.md) と [docs/editor/lazyvim.md](docs/editor/lazyvim.md) にまとめている。
@@ -421,6 +421,8 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
 - **`codex update` は使わない**。実体は Nix store 上の読み取り専用バイナリで自己更新できない。
   バージョンは nixpkgs 側で固定されている。`nix flake update nixpkgs` →
   `home-manager switch` で上げる ([docs/codex/codex.md](docs/codex/codex.md))。
+- **`agy` も自己更新に頼らない**。実体は Nix store 上の読み取り専用バイナリで、Codex と同じく nixpkgs の `antigravity-cli` で固定されているので、
+  `nix flake update nixpkgs` → `home-manager switch` で上げる。
 - **`herdr update` は使わない**。herdr の実体は Nix store 上の読み取り専用バイナリなので
   自己更新できない。バージョンは flake.lock で固定されているので、
   `nix flake update` → `home-manager switch` で上げる。

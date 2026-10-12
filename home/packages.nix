@@ -59,5 +59,11 @@
     # その他便利系
     yazi      # TUI ファイラー
     tldr      # 簡潔な man の代替
+
+    # Antigravity CLI (Google) のコーディングエージェント。コマンド名は `agy`。
+    # Claude Code / Codex と違い共通の指示ファイルを配っていないので、
+    # 設定を持たない「入れるだけ」のツールとしてここに置く。
+    # unfree なので hosts/ubuntu.nix の allowUnfree に依存している。
+    antigravity-cli
   ];
 }
