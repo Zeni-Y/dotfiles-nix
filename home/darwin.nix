@@ -18,11 +18,19 @@
   # 同じで、Nix store の fish を /etc/shells に登録する (システム領域を触る)
   # 必要が出るのと、fish を壊したときに素の zsh へ戻れなくなるため。
   #
-  # ~/.zprofile は管理しない。macOS は zsh をログインシェルとして起動するので
-  # .zprofile (Homebrew の `brew shellenv` が書いてある) → .zshrc の順に読まれ、
-  # Homebrew の PATH は exec した fish にそのまま引き継がれる。
   programs.zsh = {
     enable = true;
+
+    # Home Manager は session 変数の読み込みのために ~/.zprofile も生成するので、
+    # 手元の .zprofile にあった Homebrew の初期化はここに移す (初回 switch で
+    # .zprofile.backup に退避されて消えた)。macOS は zsh をログインシェルとして
+    # 起動するので .zprofile → .zshrc の順に読まれ、Homebrew の PATH は
+    # exec した fish にそのまま引き継がれる。Homebrew 自体は管理しない。
+    profileExtra = ''
+      if [[ -x /opt/homebrew/bin/brew ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv zsh)"
+      fi
+    '';
 
     # exec で fish に置き換わるので compinit は無駄に時間を食うだけ
     enableCompletion = false;

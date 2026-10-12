@@ -55,7 +55,7 @@ nix run home-manager/master -- switch -b backup --flake .#zenimoto@macbook
 
 `-b backup` は初回だけ付ける。素の macOS でも `~/.zshrc` と
 `~/.config/gh/config.yml` (gh を Homebrew で入れて一度でも使った場合) が
-既にあり、付けないと `Existing file ... would be clobbered` で止まる。
+既にあり (Home Manager が `~/.zprofile` も生成するので、それも対象)、付けないと `Existing file ... would be clobbered` で止まる。
 元のファイルは `*.backup` として残る。2 回目以降は fish の `hms` で足りる。
 
 ## 4. 何が置き換わるか
@@ -64,8 +64,10 @@ nix run home-manager/master -- switch -b backup --flake .#zenimoto@macbook
   `~/.local/bin` と `~/.unity/bin` の PATH 追加は `home/darwin.nix` の
   `home.sessionPath` に移してある。ほかに書き足していたものがあれば、
   `~/.zshrc.backup` を見て `home/darwin.nix` に移す。
-- **`~/.zprofile`** は管理しない。Homebrew の `brew shellenv` はそのまま効き、
-  exec した fish に PATH が引き継がれる。
+- **`~/.zprofile`** も Home Manager の生成物になる (session 変数の読み込みのため)。
+  元の `.zprofile` にあった Homebrew の `brew shellenv` は `home/darwin.nix` の
+  `programs.zsh.profileExtra` に移してあり、exec した fish に PATH が引き継がれる
+  (初回 switch で `.zprofile` が `.zprofile.backup` に退避されたことで判明。確認済み)。
 - **WezTerm.app** は `~/Applications/Home Manager Apps/` にコピーされ、
   Spotlight から起動できる (stateVersion 25.11 以降の copyApps)。
 - **フォント** は `~/Library/Fonts/HomeManager/` にコピーされる。
