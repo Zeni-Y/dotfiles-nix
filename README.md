@@ -1,7 +1,7 @@
 # dotfiles-nix
 
 [Zeni-Y/dotfiles](https://github.com/Zeni-Y/dotfiles) (chezmoi 管理) を参考に、
-**Nix Flakes + Home Manager** で Linux (Ubuntu / Docker コンテナ) 環境を
+**Nix Flakes + Home Manager** で Linux (Ubuntu / Docker コンテナ) と macOS の環境を
 宣言的に管理するための dotfiles です。
 
 CI やテストは含めず、設定が増えても見通しを保てるように
@@ -9,8 +9,9 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 
 ## 前提とスコープ
 
-- **対象 OS は Linux のみ**。Docker コンテナ内での利用も想定します。
-  macOS (nix-darwin / Homebrew) は対象外です。
+- **対象 OS は Linux と macOS (Apple Silicon)**。Docker コンテナ内での利用も想定します。
+  macOS でも管理するのは `~/` だけで、nix-darwin や Homebrew の管理はしません
+  (手順は [docs/setup/macos.md](docs/setup/macos.md))。
   Windows では **WSL2 の Ubuntu** を Linux 実機と同じ扱いで使えます
   (手順は [docs/setup/wsl2.md](docs/setup/wsl2.md))。
 - **`sudo` が使えることが前提**。Nix は `/nix` にインストールする
@@ -24,6 +25,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 > | --- | --- |
 > | [docs/nix/nix-concepts.md](docs/nix/nix-concepts.md) | Nix の構文・概念・Home Manager のライフサイクル |
 > | [docs/setup/wsl2.md](docs/setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・Docker との使い分け |
+> | [docs/setup/macos.md](docs/setup/macos.md) | macOS (Apple Silicon) でのセットアップ手順・Linux との差分 |
 > | [docs/terminal/herdr.md](docs/terminal/herdr.md) | herdr の使い方 (タブ / ペイン / workspace)・キーバインド・設定の反映フロー |
 > | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) | Neovim + LazyVim の使い方・Nix との責務分担・プラグインのライフサイクル |
 > | [docs/claude-code/claude-code.md](docs/claude-code/claude-code.md) | Claude Code の指示ファイル (CLAUDE.md / rules) の階層と Nix での配り方 |
@@ -73,7 +75,8 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 ├── flake.lock               # 依存バージョンの固定 (初回 `nix flake update` で生成)
 │
 ├── hosts/                   # ホスト (= 適用対象) 単位の入口
-│   └── ubuntu.nix           #   standalone Home Manager
+│   ├── ubuntu.nix           #   standalone Home Manager (x86_64-linux)
+│   └── macbook.nix          #   同上 (aarch64-darwin)。home/darwin.nix も読む
 │
 ├── home/                    # ユーザー領域 (~/) の設定
 │   ├── default.nix          #   配下のモジュールを集約
@@ -81,6 +84,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 │   ├── git.nix              #   Git
 │   ├── herdr.nix            #   herdr (ターミナルマルチプレクサ)
 │   ├── wezterm.nix          #   WezTerm
+│   ├── darwin.nix           #   macOS 固有 (zsh → fish・フォント)。macbook からだけ import
 │   ├── shell/               #   シェル関連
 │   │   ├── default.nix
 │   │   ├── bash.nix         #     対話シェルなら fish に exec
@@ -122,7 +126,7 @@ CI やテストは含めず、設定が増えても見通しを保てるよう�
 - **ユーザー領域の設定はすべて `home/` に置く**。Ubuntu でも Docker コンテナでも同じものが入る。
 - **ホスト構成は `hosts/` に集約する**。新しいマシンを足すときは
   `flake.nix` の outputs と `hosts/<name>.nix` を 1 つ書くだけで済む。
-- **システム領域は Nix で管理しない**。対象は NixOS ではない Linux なので、
+- **システム領域は Nix で管理しない**。対象は NixOS ではない Linux と macOS なので、
   `~/` 配下だけを Home Manager で宣言的に管理する。
 
 ---

@@ -12,6 +12,7 @@
 | | [ref-tips.md](./nix/ref-tips.md) | overlays / git-hooks.nix / agent-skills-nix の導入候補 |
 | [setup/](./setup/) | [wsl2.md](./setup/wsl2.md) | Windows (WSL2) でのセットアップ手順・1Password ssh-agent 連携・WSL 固有のハマりどころ |
 | | [ubuntu.md](./setup/ubuntu.md) | リモート接続先の素の Ubuntu でのセットアップ手順・SSH agent forwarding の扱い |
+| | [macos.md](./setup/macos.md) | macOS (Apple Silicon) でのセットアップ手順・zsh から fish への乗り換え・Linux との差分 |
 | [shell/](./shell/) | [fish-abbr.md](./shell/fish-abbr.md) | fish の補完がどこから来ているか・短縮入力 (abbreviation) の一覧と足し方 |
 | | [fish-nix-path.md](./shell/fish-nix-path.md) | fish に Nix の PATH が通る仕組みと、このリポジトリでの扱い |
 | | [ref-tips.md](./shell/ref-tips.md) | fish の abbr / functions / key bindings の導入候補 |
@@ -38,6 +39,7 @@
 | 導入したい / 環境を作り直したい | [README.md](../README.md) |
 | Windows 上に環境を作りたい | [setup/wsl2.md](./setup/wsl2.md) |
 | リモートの Ubuntu に環境を作りたい | [setup/ubuntu.md](./setup/ubuntu.md) |
+| Mac に環境を作りたい / Mac で何が置き換わるか | [setup/macos.md](./setup/macos.md) |
 | 再起動後もパスフレーズ無しで ssh したい (1Password) | [setup/wsl2.md 7-4 章](./setup/wsl2.md#74-ssh-agent-を-windows-側に一本化する-任意) |
 | API キーやトークンを .env に平文で置きたくない | [secrets/1password-direnv.md](./secrets/1password-direnv.md) |
 | `use op` が空になる / セッションが切れる | [secrets/1password-direnv.md 7 章](./secrets/1password-direnv.md#7-ハマりどころ) |

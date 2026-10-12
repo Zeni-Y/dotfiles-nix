@@ -17,6 +17,10 @@ in
 inputs.home-manager.lib.homeManagerConfiguration {
   inherit pkgs;
 
+  # homeConfigurations のキー (<user>@<hostName>) の後半。
+  # home/shell/fish.nix の hms などの短縮入力がこれを使う。
+  extraSpecialArgs.hostName = "ubuntu";
+
   modules = [
     ../home
 
