@@ -4,13 +4,14 @@
 # プラグインは programs.fish.plugins で管理する。
 # これにより fisher は不要で、バージョンは flake.lock で固定される。
 # ─────────────────────────────────────────────────────────────
-{ config, pkgs, ... }:
+{ config, pkgs, hostName, ... }:
 
 let
   # flake の場所と homeConfigurations のキー。
-  # 後者は flake.nix の `homeConfigurations."${userInfo.username}@ubuntu"`
+  # 後者は flake.nix の `homeConfigurations."${userInfo.username}@<host>"`
   # と一致させる必要がある。username は userInfo から流れてくるので
-  # config 経由で拾い、ホスト側の "ubuntu" だけ直書きする。
+  # config 経由で拾い、ホスト側 ("ubuntu" / "macbook") は hosts/*.nix の
+  # extraSpecialArgs.hostName から受け取る。
   #
   # パスは ghq の標準レイアウト (<root>/<host>/<owner>/<repo>)。
   # worktree を同じ root に集約するため (docs/git/git-worktree.md 7 章)、
@@ -19,7 +20,7 @@ let
   # 導けない。flake.nix の userInfo.githubUser が git config (ghq.user) に
   # 流れてくるので、そこから拾って直書きをなくしている。
   flakeDir = "${config.home.homeDirectory}/ghq/github.com/${config.programs.git.settings.ghq.user}/dotfiles-nix";
-  flakeRef = "${flakeDir}#${config.home.username}@ubuntu";
+  flakeRef = "${flakeDir}#${config.home.username}@${hostName}";
 in
 {
   programs.fish = {
@@ -129,7 +130,7 @@ in
       # cd してから行う運用なので、worktree など「いま居るチェックアウト」を
       # そのまま適用できる方が意図と一致する。username は userInfo から
       # config 経由で流れてくるので直書きしない。
-      hms = "home-manager switch --flake .#${config.home.username}@ubuntu";
+      hms = "home-manager switch --flake .#${config.home.username}@${hostName}";
       hmn = "home-manager news --flake ${flakeRef}";
       hmg = "home-manager generations --flake ${flakeRef}";
 

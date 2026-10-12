@@ -126,6 +126,9 @@
     if set -q HERDR_ENV
         set -gx SSH_AUTH_SOCK $HOME/.ssh/ssh_auth_sock
     else if test -S "$SSH_AUTH_SOCK"; and test "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock"
+        # 新しいマシン (macOS の初期状態など) では ~/.ssh がまだ無く、
+        # ln が毎回エラーを出すので先に作る
+        test -d $HOME/.ssh; or mkdir -m 700 $HOME/.ssh
         ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
     end
 

@@ -4,7 +4,7 @@
 # シェル統合や設定が必要なものは home/cli/*.nix で programs.* として
 # 個別管理する。ここには「入れるだけで使える」ツールだけを置く。
 # ─────────────────────────────────────────────────────────────
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
   home.packages = with pkgs; [
@@ -39,7 +39,6 @@
     # ネイティブ拡張を持つ Python パッケージを wheel 無しで入れる場合など、
     # ビルドが必要になる場面のために最小限だけ持っておく。
     # (docker/working では apt の build-essential を廃止してこちらに寄せた)
-    gcc
     pkg-config
 
     # シェルスクリプト品質
@@ -63,7 +62,11 @@
     # Antigravity CLI (Google) のコーディングエージェント。コマンド名は `agy`。
     # Claude Code / Codex と違い共通の指示ファイルを配っていないので、
     # 設定を持たない「入れるだけ」のツールとしてここに置く。
-    # unfree なので hosts/ubuntu.nix の allowUnfree に依存している。
+    # unfree なので hosts/*.nix の allowUnfree に依存している。
     antigravity-cli
-  ];
+  ]
+  # macOS では入れない。Xcode Command Line Tools の clang が cc / c++ として
+  # 既にあり、nixpkgs の gcc を PATH に足すと cc が gcc に差し替わって
+  # macOS SDK 前提のビルド (Python のネイティブ拡張など) と噛み合わなくなるため。
+  ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ gcc ];
 }

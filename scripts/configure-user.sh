@@ -62,4 +62,5 @@ echo "flake.nix を更新しました。差分と評価結果を確認してく�
 echo "  git diff flake.nix"
 echo "  nix flake check --no-build"
 echo "問題なければ Home Manager を適用します (初回は -b backup 付き):"
-echo "  nix run home-manager/master -- switch -b backup --flake .#${username}@ubuntu"
+if [ "$(uname -s)" = "Darwin" ]; then host=macbook; else host=ubuntu; fi
+echo "  nix run home-manager/master -- switch -b backup --flake .#${username}@${host}"

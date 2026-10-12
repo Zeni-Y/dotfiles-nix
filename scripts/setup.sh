@@ -8,6 +8,7 @@
 #   一切サポートしない。sudo が無い環境ではシステム管理者に Nix の
 #   インストールを依頼すること。
 #
+#   - macOS では launchd が daemon を起動するのでそのままインストールする
 #   - systemd が動いている環境ではそのままインストールする
 #   - systemd が無い環境 (Docker コンテナなど) では
 #     `nix-installer install linux --init none` で daemon の自動起動を
@@ -68,6 +69,17 @@ have_sudo() {
 have_systemd() {
     [ -d /run/systemd/system ]
 }
+
+is_darwin() {
+    [ "$(uname -s)" = "Darwin" ]
+}
+
+# homeConfigurations のキー (flake.nix)。案内メッセージ用。
+if is_darwin; then
+    HM_HOST=macbook
+else
+    HM_HOST=ubuntu
+fi
 
 # ─── ~/.bashrc に Nix 関連の起動スニペットを追記 ──────────────
 # 同じ目印 (grep キー) を含む行が既にあれば二重に書かない。
@@ -135,13 +147,20 @@ install_nix() {
     ok "Nix のインストールが完了しました"
 
     # ~/.bashrc に source 行を (no-systemd ならそれに加えて daemon 自動起動も) 追記
-    if [ "$init_mode" = "no-systemd" ]; then
+    # macOS のログインシェルは zsh で、installer が /etc/zshrc に読み込みを
+    # 書くので ~/.bashrc は触らない
+    if is_darwin; then
+        cat <<'EOM'
+
+新しいターミナルを開けば nix コマンドが使えます。
+EOM
+    elif [ "$init_mode" = "no-systemd" ]; then
         write_bashrc_nix_snippets with-daemon-autostart
     else
         write_bashrc_nix_snippets no-daemon-autostart
     fi
 
-    cat <<'EOM'
+    is_darwin || cat <<'EOM'
 
 ~/.bashrc に Nix 環境の読み込みを追記したので、
 新しいシェルを開けばそのまま nix コマンドが使えます:
@@ -167,11 +186,11 @@ systemd の無い環境では nix-daemon が自動起動しないので、
 EOM
     fi
 
-    cat <<'EOM'
+    cat <<EOM
 
 その後、Home Manager を適用できます (初回は必ず -b backup を付ける):
 
-  nix run home-manager/master -- switch -b backup --flake .#zenimoto@ubuntu
+  nix run home-manager/master -- switch -b backup --flake .#$(id -un)@${HM_HOST}
 EOM
 }
 
@@ -184,7 +203,10 @@ if ! have_sudo; then
     exit 1
 fi
 
-if [ "$FORCE_INIT_NONE" = "1" ]; then
+if is_darwin; then
+    log "macOS を検出しました → 通常の Nix をインストールします"
+    install_nix with-systemd
+elif [ "$FORCE_INIT_NONE" = "1" ]; then
     log "--init-none が指定されました → \`linux --init none\` プランでインストールします"
     install_nix no-systemd
 elif have_systemd; then

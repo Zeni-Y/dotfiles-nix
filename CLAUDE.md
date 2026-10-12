@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-`dotfiles-nix` — **Nix Flakes + Home Manager** で Linux (Ubuntu / WSL2 / Docker) の
+`dotfiles-nix` — **Nix Flakes + Home Manager** で Linux (Ubuntu / WSL2 / Docker) と macOS (Apple Silicon) の
 ホームディレクトリを宣言的に管理する dotfiles。CI もテストも無い。
 
 worktree・ブランチ・コミット・PR の作法は全プロジェクト共通なので `~/.claude/CLAUDE.md` と
@@ -13,7 +13,8 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
   エージェント側の検証は評価まで:
   ```bash
   nix flake check --no-build
-  nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage
+  nix build .#homeConfigurations."zenimoto@ubuntu".activationPackage   # Linux 上
+  nix build .#homeConfigurations."zenimoto@macbook".activationPackage  # macOS 上
   ```
 - **新しい `.nix` やそこから参照する Markdown を足したら `git add`。**
   flake は git 管理下のファイルしか見ない (コミットまでは不要)。
@@ -21,10 +22,12 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 
 ## スコープ (勝手に広げない)
 
-- 対象は **Linux のみ**。macOS (nix-darwin / Homebrew) 向けの分岐を足さない。
+- 対象は **Linux と macOS (Apple Silicon)**。どちらも standalone Home Manager で `~/` だけ。
+  macOS 固有の差分は `home/darwin.nix` (macbook ホストだけが import) に集め、
+  共通モジュールに `isDarwin` 分岐を散らさない。nix-darwin / Homebrew の管理は足さない。
 - **`sudo` が使える前提**。`/nix` に入る通常の multi-user Nix だけ。`nix-portable` は使わない。
 - **システム領域は管理しない。** NixOS ではないので `~/` 配下 (Home Manager) だけ。
-- 一度設計から外したもの (macOS / nix-portable / chezmoi / tmux / zellij / Zed) を
+- 一度設計から外したもの (nix-darwin / nix-portable / chezmoi / tmux / zellij / Zed) を
   再導入する提案はしない。
 
 ## どこに何があるか
@@ -32,7 +35,8 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 | パス | 役割 |
 | --- | --- |
 | `flake.nix` | 入力 (nixpkgs / home-manager / nix-claude-code) と `userInfo` |
-| `hosts/<name>.nix` | ホスト単位の入口。マシンを増やすときはここ + `flake.nix` の outputs |
+| `hosts/<name>.nix` | ホスト単位の入口 (`ubuntu` / `macbook`)。マシンを増やすときはここ + `flake.nix` の outputs |
+| `home/darwin.nix` | macOS 固有 (zsh → fish・フォント)。`hosts/macbook.nix` からだけ import |
 | `home/packages.nix` | 「入れるだけで使える」ツール |
 | `home/cli/<name>.nix` | シェル統合・設定・関数を持つツール |
 | `home/shell/` `home/editors/` | fish / bash、Neovim |
@@ -78,6 +82,7 @@ worktree・ブランチ・コミット・PR の作法は全プロジェクト共
 | 日本語 LaTeX を latexmk でビルドしたい / `.sty` が足りない | [docs/cli/latexmk.md](docs/cli/latexmk.md) |
 | Neovim / LazyVim の責務分担 | [docs/editor/lazyvim.md](docs/editor/lazyvim.md) |
 | Windows (WSL2) のセットアップ | [docs/setup/wsl2.md](docs/setup/wsl2.md) |
+| macOS のセットアップ / Linux との差分 | [docs/setup/macos.md](docs/setup/macos.md) |
 | コンテナで `nix-daemon` が落ちている / UID 不一致 | [docker/debug/README.md](docker/debug/README.md#よくあるエラーと対処) |
 | その他の既知の罠 | [README.md「既知のハマりどころ」](README.md#既知のハマりどころ) |
 
