@@ -209,7 +209,10 @@ exec: Failed to execute process '/usr/bin/nvidia-smi':
 - **`nix-daemon` を誰も起動しない**
   systemd が無いので `entrypoint.sh` が面倒を見る。これが居ないと一般ユーザーは
   store に書けず `home-manager switch` も失敗する。Nix はストアが書けないユーザーなら
-  自動で daemon 経由になるので、`NIX_REMOTE` を手で設定する必要はない
+  自動で daemon 経由になるので、`NIX_REMOTE` を手で設定する必要はない。
+  **起動済みかの判定にソケットの有無を使ってはいけない**。`/nix` はイメージ層なので、
+  ビルド時に上げた daemon のソケットが焼き込まれて残り、listen している相手が
+  居ないまま `Connection refused` になる。entrypoint 側は残骸を消して無条件に起こす
 - **タイムゾーンが解決できない**
   nixpkgs の glibc は既定で `/usr/share/zoneinfo` を見ない（`TZDIR` 頼み）。
   `TZ` を環境変数として残すと、`TZDIR` が渡らない場面で `Asia/Tokyo` が

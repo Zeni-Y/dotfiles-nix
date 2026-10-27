@@ -183,6 +183,28 @@ make stop       # 停止
 make gpu-test
 ```
 
+## トラブルシューティング
+
+### `cannot connect to socket at '/nix/var/nix/daemon-socket/socket': Connection refused`
+
+`nix` / `home-manager switch` が上記で落ちるときは `nix-daemon` が動いていない。
+systemd が無いので daemon の面倒は `entrypoint.sh` だけが見ている。
+
+その場しのぎの復旧 (コンテナを作り直さずに済ませたいとき):
+
+```bash
+sudo sh -c '/nix/var/nix/profiles/default/bin/nix-daemon --daemon >/tmp/nix-daemon.log 2>&1 &'
+nix store info --store daemon   # Store URL: daemon が返れば復旧
+```
+
+`make restart` でも `entrypoint.sh` が走り直すので直る。
+
+> 以前は、ビルド時に `bake-dotfiles.sh` が上げた daemon のソケットが
+> イメージ層に焼き込まれて残り、`entrypoint.sh` がそれを見て「もう daemon が
+> 居る」と誤認して起動を飛ばしていた。この構成では毎回この状態になる。
+> 現在は bake 側が終了時にソケットを消し、entrypoint 側も残骸を消して
+> 無条件に起こすようにしてある。古いイメージを使っている場合は作り直すこと。
+
 ## 主な変更点（旧構成からの移行）
 
 | 項目            | 旧                                     | 新                                 |
