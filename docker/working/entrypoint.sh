@@ -18,20 +18,33 @@ set -euo pipefail
 : "${GITHUB_USER:?GITHUB_USER must be set (build-arg or -e GITHUB_USER=...)}"
 
 NIX_PROFILE=/nix/var/nix/profiles/default
+NIX_SOCKET=/nix/var/nix/daemon-socket/socket
 
 # ─── 1. nix-daemon ───────────────────────────────────────────
+# ソケットの有無で「起動済み」と判断してはいけない。/nix はボリュームでは
+# なくイメージ層なので、ビルド時に bake-dotfiles.sh が上げた daemon の
+# ソケットがそのまま焼き込まれて残る。新しいコンテナではファイルだけが
+# 存在して listen している相手は居らず、
+#   error: cannot connect to socket at '...': Connection refused
+# になる (しかも entrypoint は「もう居る」と誤認して黙って先へ進むので、
+# ログを見ても気付けない)。
+#
+# entrypoint はコンテナ起動時に 1 度だけ走り、その時点で生きた daemon は
+# 居ないので、残骸を消して無条件に起こす。起動確認もファイルの出現では
+# 足りないので、プロセスが生きているかまで見る。
 if [ -x "${NIX_PROFILE}/bin/nix-daemon" ]; then
-    if [ ! -S /nix/var/nix/daemon-socket/socket ]; then
-        "${NIX_PROFILE}/bin/nix-daemon" --daemon &
-        for _ in $(seq 1 100); do
-            [ -S /nix/var/nix/daemon-socket/socket ] && break
-            sleep 0.2
-        done
-    fi
-    if [ -S /nix/var/nix/daemon-socket/socket ]; then
-        echo "==> nix-daemon is up"
+    rm -f "${NIX_SOCKET}"
+    "${NIX_PROFILE}/bin/nix-daemon" --daemon &
+    daemon_pid=$!
+    for _ in $(seq 1 100); do
+        [ -S "${NIX_SOCKET}" ] && break
+        kill -0 "${daemon_pid}" 2>/dev/null || break   # 即死したら待つ意味がない
+        sleep 0.2
+    done
+    if [ -S "${NIX_SOCKET}" ] && kill -0 "${daemon_pid}" 2>/dev/null; then
+        echo "==> nix-daemon is up (pid ${daemon_pid})"
     else
-        echo "WARN: nix-daemon socket did not appear; nix may not work for non-root users" >&2
+        echo "WARN: nix-daemon did not come up; nix may not work for non-root users" >&2
     fi
 else
     echo "WARN: nix-daemon not found; this image seems to be built without Nix" >&2

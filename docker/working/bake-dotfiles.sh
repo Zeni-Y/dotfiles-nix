@@ -21,20 +21,35 @@ set -euo pipefail
 REPO="${REPO:-/home/${USERNAME}/dotfiles-nix}"
 
 PROFILE=/nix/var/nix/profiles/default
+NIX_SOCKET=/nix/var/nix/daemon-socket/socket
 
 # ─── 1. nix-daemon ───────────────────────────────────────────
-if [ ! -S /nix/var/nix/daemon-socket/socket ]; then
-    "${PROFILE}/bin/nix-daemon" --daemon &
-    for _ in $(seq 1 100); do
-        [ -S /nix/var/nix/daemon-socket/socket ] && break
-        sleep 0.2
-    done
-fi
-if [ ! -S /nix/var/nix/daemon-socket/socket ]; then
-    echo "ERROR: nix-daemon socket did not appear" >&2
+# この RUN の中だけで使うので、終了時に必ず落としてソケットも消す。
+# 消し忘れると /nix はイメージ層なのでソケットが焼き込まれ、コンテナ起動時の
+# entrypoint.sh が「もう daemon が居る」と誤認して起動を飛ばす
+# (結果、一般ユーザーから `Connection refused`)。
+rm -f "${NIX_SOCKET}"
+"${PROFILE}/bin/nix-daemon" --daemon &
+DAEMON_PID=$!
+
+cleanup() {
+    kill "${DAEMON_PID}" 2>/dev/null || true
+    wait "${DAEMON_PID}" 2>/dev/null || true
+    rm -f "${NIX_SOCKET}"
+    rm -f "${inner:-}"
+}
+trap cleanup EXIT
+
+for _ in $(seq 1 100); do
+    [ -S "${NIX_SOCKET}" ] && break
+    kill -0 "${DAEMON_PID}" 2>/dev/null || break   # 即死したら待つ意味がない
+    sleep 0.2
+done
+if [ ! -S "${NIX_SOCKET}" ] || ! kill -0 "${DAEMON_PID}" 2>/dev/null; then
+    echo "ERROR: nix-daemon did not come up" >&2
     exit 1
 fi
-echo "==> nix-daemon is up"
+echo "==> nix-daemon is up (pid ${DAEMON_PID})"
 
 # ─── 2. Home Manager ─────────────────────────────────────────
 # 内側で実行するスクリプトはファイルに書き出す。setpriv 越しに
@@ -43,8 +58,7 @@ echo "==> nix-daemon is up"
 # HOME_MANAGER_BACKUP_EXT は必須。useradd が /etc/skel から配った
 # ~/.bashrc / ~/.profile と Home Manager の生成物が衝突するので、
 # 退避先の拡張子を教えておかないと activation が止まる。
-inner=$(mktemp)
-trap 'rm -f "${inner}"' EXIT
+inner=$(mktemp)   # 後片付けは上の cleanup がまとめて見る
 cat >"${inner}" <<EOS
 set -eu
 out=\$(nix build --no-link --print-out-paths \\

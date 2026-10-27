@@ -403,9 +403,14 @@ push すればよい。この dotfiles 側は「無ければ starter を置く�
   ```
 - **systemd 無しの環境 (Docker コンテナなど) では `nix-daemon` を手動起動する**。
   `setup.sh` でインストール後、`opening lock file ".../big-lock": Permission denied`
+  や `cannot connect to socket at '/nix/var/nix/daemon-socket/socket': Connection refused`
   が出るのは daemon が落ちているサイン。`~/.bashrc` に
   `pgrep -x nix-daemon || sudo /nix/var/nix/profiles/default/bin/nix-daemon &` を
   仕込んでおくと毎回手で叩かなくて済む。
+  なお**ソケットのファイルが存在していても daemon が生きている保証は無い**。
+  `/nix` がイメージ層にあるコンテナでは、ビルド時に上げた daemon のソケットが
+  焼き込まれて残る。生存確認は `pgrep -x nix-daemon` か
+  `nix store info --store daemon` で行う (→ [docker/working/README.md](docker/working/README.md#トラブルシューティング))。
 - **`~/.config/nvim` は Home Manager の管理下に無い**。`home-manager switch` を
   やり直しても、世代を切り戻しても、Neovim の設定とプラグインは元に戻らない。
   意図的にそうしている (理由は [エディタの節](#エディタ-neovim--lazyvim)) ので、

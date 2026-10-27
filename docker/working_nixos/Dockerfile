@@ -191,10 +191,17 @@ RUN mkdir -p /etc/ssh && printf '%s\n' \
 # `nix build` / activation はユーザー権限で走らせる必要がある一方、
 # store はユーザーから書けないので、この RUN の中だけ nix-daemon を上げる。
 COPY --chown=${USER_UID}:${USER_GID} . /home/${USERNAME}/dotfiles-nix
+# daemon のソケットは RUN の前後で消す。/nix はボリュームではなくイメージ層
+# なので、残すとソケットが焼き込まれ、コンテナ起動時の entrypoint.sh が
+# 「もう daemon が居る」と誤認して起動を飛ばす。結果、listen している相手が
+# 居ないソケットだけが残り、一般ユーザーが `Connection refused` を食う。
 RUN set -eu; \
+    rm -f /nix/var/nix/daemon-socket/socket; \
     nix-daemon --daemon & \
+    daemon_pid=$!; \
     for _ in $(seq 1 100); do \
         [ -S /nix/var/nix/daemon-socket/socket ] && break; \
+        kill -0 "$daemon_pid" 2>/dev/null || break; \
         sleep 0.2; \
     done; \
     setpriv --reuid="${USER_UID}" --regid="${USER_GID}" --init-groups \
@@ -206,7 +213,9 @@ RUN set -eu; \
                 "/home/'"${USERNAME}"'/dotfiles-nix#homeConfigurations.\"'"${HM_CONFIG}"'\".activationPackage"); \
             "$out"/activate \
         '; \
-    nix store gc --quiet 2>/dev/null || true
+    nix store gc --quiet 2>/dev/null || true; \
+    kill "$daemon_pid" 2>/dev/null || true; \
+    rm -f /nix/var/nix/daemon-socket/socket
 
 # ─── NVIDIA GPU (nvidia-container-toolkit) 対応 ──────────────
 # `--gpus all` を付けると nvidia-container-toolkit が **ホスト側の**

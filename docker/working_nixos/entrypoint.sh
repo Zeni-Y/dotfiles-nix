@@ -18,19 +18,30 @@ set -euo pipefail
 : "${GITHUB_USER:?GITHUB_USER must be set (build-arg or -e GITHUB_USER=...)}"
 
 PROFILE=/nix/var/nix/profiles/default
+NIX_SOCKET=/nix/var/nix/daemon-socket/socket
 
 # ─── 1. nix-daemon ───────────────────────────────────────────
-if [ ! -S /nix/var/nix/daemon-socket/socket ]; then
-    "${PROFILE}/bin/nix-daemon" --daemon &
-    for _ in $(seq 1 100); do
-        [ -S /nix/var/nix/daemon-socket/socket ] && break
-        sleep 0.2
-    done
-fi
-if [ -S /nix/var/nix/daemon-socket/socket ]; then
-    echo "==> nix-daemon is up"
+# ソケットの有無で「起動済み」と判断してはいけない。/nix はボリュームでは
+# なくイメージ層なので、ビルド時に上げた daemon のソケットがそのまま
+# 焼き込まれて残る。新しいコンテナではファイルだけが存在して listen して
+# いる相手は居らず、
+#   error: cannot connect to socket at '...': Connection refused
+# になる (しかも entrypoint は「もう居る」と誤認して黙って先へ進む)。
+#
+# entrypoint はコンテナ起動時に 1 度だけ走り、その時点で生きた daemon は
+# 居ないので、残骸を消して無条件に起こす。
+rm -f "${NIX_SOCKET}"
+"${PROFILE}/bin/nix-daemon" --daemon &
+daemon_pid=$!
+for _ in $(seq 1 100); do
+    [ -S "${NIX_SOCKET}" ] && break
+    kill -0 "${daemon_pid}" 2>/dev/null || break   # 即死したら待つ意味がない
+    sleep 0.2
+done
+if [ -S "${NIX_SOCKET}" ] && kill -0 "${daemon_pid}" 2>/dev/null; then
+    echo "==> nix-daemon is up (pid ${daemon_pid})"
 else
-    echo "WARN: nix-daemon socket did not appear; nix may not work for non-root users" >&2
+    echo "WARN: nix-daemon did not come up; nix may not work for non-root users" >&2
 fi
 
 # ─── 2. ホスト鍵 ─────────────────────────────────────────────
