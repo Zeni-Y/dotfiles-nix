@@ -10,6 +10,7 @@
     ./ghq.nix
     ./gwq.nix
     ./hiraku.nix
+    ./office.nix
     ./onepassword.nix
     ./texlive.nix
     ./zoxide.nix
